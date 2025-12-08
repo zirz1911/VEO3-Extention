@@ -15,12 +15,20 @@
   <div class="container">
     <header>
       <div class="logo">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M2 7L22 7" stroke="#F97316" stroke-width="2" stroke-linecap="round" />
-          <path d="M2 12L22 12" stroke="#F97316" stroke-width="2" stroke-linecap="round" />
-          <path d="M2 17L22 17" stroke="#F97316" stroke-width="2" stroke-linecap="round" />
-        </svg>
+        <button class="menu-btn" id="menuBtn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 7L22 7" stroke="#F97316" stroke-width="2" stroke-linecap="round" />
+            <path d="M2 12L22 12" stroke="#F97316" stroke-width="2" stroke-linecap="round" />
+            <path d="M2 17L22 17" stroke="#F97316" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
         <h1>Gen Flow Flow</h1>
+        <!-- Dropdown Menu -->
+        <div id="platformMenu" class="dropdown-menu hidden">
+          <div class="dropdown-item" data-url="https://labs.google/">Flow</div>
+          <div class="dropdown-item" data-url="https://sora.chatgpt.com/">SORA</div>
+          <div class="dropdown-item" data-url="https://www.meta.ai/">Meta</div>
+        </div>
       </div>
       <button class="settings-btn" id="settingsBtn">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -34,78 +42,208 @@
       </button>
     </header>
 
-    <div class="section product-image-section">
-      <label class="section-label">รูปต้นแบบ <span class="required">*</span></label>
-      <div class="image-upload-area" id="imageUploadArea">
-        <input type="file" id="productImageInput" accept="image/*" hidden>
-        <div class="upload-placeholder" id="uploadPlaceholder">
-          <!-- Placeholder content will be handled by JS or CSS background -->
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 5V19M5 12H19" stroke="#64748B" stroke-width="2" stroke-linecap="round" />
-          </svg>
+    <!-- FLOW UI SECTION -->
+    <div id="flowUI">
+      <div class="section product-image-section">
+        <label class="section-label">Reference Image <span class="required">*</span></label>
+        <div class="image-upload-area" id="imageUploadArea">
+          <input type="file" id="productImageInput" accept="image/*" hidden>
+          <div class="upload-placeholder" id="uploadPlaceholder">
+            <!-- Placeholder content will be handled by JS or CSS background -->
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 5V19M5 12H19" stroke="#64748B" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </div>
+          <img id="imagePreview" class="image-preview hidden" src="" alt="Product Preview">
+          <button class="remove-image-btn hidden" id="removeImageBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-        <img id="imagePreview" class="image-preview hidden" src="" alt="Product Preview">
-        <button class="remove-image-btn hidden" id="removeImageBtn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-    </div>
-
-    <div class="form-grid">
-      <div class="form-group">
-        <label>ชื่อสินค้า</label>
-        <input type="text" id="productName" placeholder="ไม่บังคับ">
       </div>
 
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Product Name</label>
+          <input type="text" id="productName" placeholder="Optional">
+        </div>
+
+        <div class="form-group">
+          <label>Video Ratio</label>
+          <select id="ratioSelect">
+            <option value="9:16">Portrait 9:16</option>
+            <option value="16:9">Landscape 16:9</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Quantity</label>
+          <select id="quantitySelect">
+            <option value="4">4 Clips</option>
+            <option value="2">2 Clips</option>
+            <option value="1">1 Clip</option>
+          </select>
+        </div>
+      </div>
+
       <div class="form-group">
-        <label>สัดส่วนวิดีโอ</label>
-        <select id="ratioSelect">
-          <option value="9:16">แนวตั้ง 9:16</option>
-          <option value="16:9">แนวนอน 16:9</option>
-          <option value="1:1">สี่เหลี่ยม 1:1</option>
+        <label>Camera Angle</label>
+        <div class="radio-group">
+          <label class="radio-option">
+            <input type="radio" name="camera" value="static" checked>
+            <span class="radio-label"><span class="radio-dot"></span>Static</span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="camera" value="dynamic">
+            <span class="radio-label"><span class="radio-dot"></span>Dynamic</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Script</label>
+        <textarea id="scriptInput" rows="4" placeholder="Enter script here..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Spoken Language</label>
+        <select id="languageSelect">
+          <option value="Thai">Thai</option>
+          <option value="English">English</option>
+          <option value="Japanese">Japanese</option>
+          <option value="Chinese">Chinese</option>
+          <option value="Korean">Korean</option>
+          <option value="Spanish">Spanish</option>
+          <option value="French">French</option>
+          <option value="German">German</option>
         </select>
       </div>
+
       <div class="form-group">
-        <label>จำนวน</label>
-        <select id="quantitySelect">
-          <option value="4">4 คลิป</option>
-          <option value="2">2 คลิป</option>
-          <option value="1">1 คลิป</option>
+        <label>AI Model</label>
+        <div class="radio-group model-selector">
+          <label class="radio-option">
+            <input type="radio" name="flowModel" value="chatgpt" checked>
+            <span class="radio-label"><span class="radio-dot"></span>ChatGPT</span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="flowModel" value="gemini">
+            <span class="radio-label"><span class="radio-dot"></span>Gemini</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="analyzeBtn" class="btn btn-secondary" disabled>
+          <span class="icon">✨</span> Generate Prompt
+        </button>
+
+        <div class="action-row">
+          <button id="cancelBtn" class="btn btn-ghost">Cancel</button>
+          <button id="createBtn" class="btn btn-primary">
+            <span class="icon">✨</span> Create Video
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SORA UI SECTION -->
+    <div id="soraUI" class="hidden">
+      <div class="section product-image-section">
+        <label class="section-label">Reference Image <span class="required">*</span></label>
+        <div class="image-upload-area" id="soraImageUploadArea">
+          <input type="file" id="soraImageInput" accept="image/*" hidden>
+          <div class="upload-placeholder" id="soraUploadPlaceholder">
+            <!-- Placeholder -->
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 5V19M5 12H19" stroke="#64748B" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </div>
+          <img id="soraImagePreview" class="image-preview hidden" src="" alt="Preview">
+          <button class="remove-image-btn hidden" id="soraRemoveImageBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Your Character (Optional)</label>
+          <input type="text" id="soraCharacter">
+        </div>
+        <div class="form-group">
+          <label>Ratio</label>
+          <select id="soraRatio">
+            <option value="9:16">9:16</option>
+            <option value="16:9">16:9</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Style</label>
+          <select id="soraStyle">
+            <option value="Winter">Winter</option>
+            <option value="Comic">Comic</option>
+            <option value="News">News</option>
+            <option value="Selfie">Selfie</option>
+            <option value="Handheld">Handheld</option>
+            <option value="Anime">Anime</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Decide your video</label>
+          <input type="text" id="soraDecide">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Prompt</label>
+        <textarea id="soraPromptInput" rows="6" class="prompt-area"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Spoken Language</label>
+        <select id="soraLanguageSelect">
+          <option value="Thai">Thai</option>
+          <option value="English">English</option>
+          <option value="Japanese">Japanese</option>
+          <option value="Chinese">Chinese</option>
+          <option value="Korean">Korean</option>
+          <option value="Spanish">Spanish</option>
+          <option value="French">French</option>
+          <option value="German">German</option>
         </select>
       </div>
-    </div>
 
-    <div class="form-group">
-      <label>มุมกล้อง</label>
-      <div class="radio-group">
-        <label class="radio-option">
-          <input type="radio" name="camera" value="static" checked>
-          <span class="radio-label"><span class="radio-dot"></span>นิ่ง</span>
-        </label>
-        <label class="radio-option">
-          <input type="radio" name="camera" value="dynamic">
-          <span class="radio-label"><span class="radio-dot"></span>สุ่ม</span>
-        </label>
+      <div class="form-group">
+        <label>AI Model</label>
+        <div class="radio-group model-selector">
+          <label class="radio-option">
+            <input type="radio" name="soraModel" value="chatgpt" checked>
+            <span class="radio-label"><span class="radio-dot"></span>ChatGPT</span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="soraModel" value="gemini">
+            <span class="radio-label"><span class="radio-dot"></span>Gemini</span>
+          </label>
+        </div>
       </div>
-    </div>
 
-    <div class="form-group">
-      <label>บทพูด</label>
-      <textarea id="scriptInput" rows="4" placeholder="ใส่บทพูดที่นี่..."></textarea>
-    </div>
-
-    <div class="actions">
-      <button id="analyzeBtn" class="btn btn-secondary" disabled>
-        <span class="icon">✨</span> Generate Prompt
-      </button>
-
-      <div class="action-row">
-        <button id="cancelBtn" class="btn btn-ghost">ยกเลิก</button>
-        <button id="createBtn" class="btn btn-primary">
-          <span class="icon">✨</span> สร้างวิดีโอ
+      <div class="actions">
+        <button id="soraGeneratePromptBtn" class="btn btn-secondary">
+          Generate Prompt
         </button>
+
+        <div class="action-row">
+          <button id="soraCancelBtn" class="btn btn-ghost">Cancel</button>
+          <button id="soraGenerateBtn" class="btn btn-primary">
+            Generate
+          </button>
+        </div>
       </div>
     </div>
 

@@ -51,6 +51,7 @@ header {
   display: flex;
   align-items: center;
   gap: 8px;
+  position: relative;
 }
 
 .logo h1 {
@@ -58,6 +59,52 @@ header {
   font-weight: 600;
   color: var(--primary);
   text-shadow: 0 0 10px rgba(249, 115, 22, 0.3);
+}
+
+.menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.menu-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Dropdown Menu */
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  min-width: 120px;
+  z-index: 2000;
+  overflow: hidden;
+  padding: 4px;
+}
+
+.dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--text-main);
+  font-size: 13px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+  background: rgba(249, 115, 22, 0.1);
+  color: var(--primary);
 }
 
 .settings-btn {
@@ -142,7 +189,13 @@ header {
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  /* Slightly increased from 6px */
+  margin-bottom: 4px;
+}
+
+.model-selector {
+  gap: 12px;
 }
 
 .form-group label {
@@ -414,3 +467,5 @@ textarea:focus {
   justify-content: flex-end;
   background: rgba(255, 255, 255, 0.02);
 }
+
+/* SORA styles removed */
