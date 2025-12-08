@@ -22,7 +22,7 @@
         </svg>
         <h1>Gen Flow Flow</h1>
       </div>
-      <button class="settings-btn">
+      <button class="settings-btn" id="settingsBtn">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path
             d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
@@ -116,6 +116,34 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>ตั้งค่า API Key</h2>
+        <button id="closeSettingsBtn" class="close-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="googleApiKey">Google API Key</label>
+          <input type="password" id="googleApiKey" placeholder="AIzaSy...">
+        </div>
+        <div class="form-group">
+          <label for="chatgptApiKey">ChatGPT API Key</label>
+          <input type="password" id="chatgptApiKey" placeholder="sk-...">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="saveSettingsBtn" class="btn btn-primary">บันทึก</button>
+      </div>
+    </div>
   </div>
   <script src="sidepanel.js"></script>
 </body>

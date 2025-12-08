@@ -59,14 +59,74 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Button Logic
     // Button Logic
+
+    // Settings Logic
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsModal = document.getElementById('settingsModal');
+    const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    const googleApiKeyInput = document.getElementById('googleApiKey');
+    const chatgptApiKeyInput = document.getElementById('chatgptApiKey');
+
+    // Open Settings
+    settingsBtn.addEventListener('click', () => {
+        // Load saved keys
+        chrome.storage.local.get(['googleApiKey', 'chatgptApiKey'], (result) => {
+            if (result.googleApiKey) googleApiKeyInput.value = result.googleApiKey;
+            if (result.chatgptApiKey) chatgptApiKeyInput.value = result.chatgptApiKey;
+        });
+        settingsModal.classList.remove('hidden');
+    });
+
+    // Close Settings
+    closeSettingsBtn.addEventListener('click', () => {
+        settingsModal.classList.add('hidden');
+    });
+
+    // Close if clicking outside modal content
+    settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal || e.target.classList.contains('modal-overlay')) {
+            settingsModal.classList.add('hidden');
+        }
+    });
+
+    // Save Settings
+    saveSettingsBtn.addEventListener('click', () => {
+        const googleApiKey = googleApiKeyInput.value.trim();
+        const chatgptApiKey = chatgptApiKeyInput.value.trim();
+
+        chrome.storage.local.set({
+            googleApiKey: googleApiKey,
+            chatgptApiKey: chatgptApiKey
+        }, () => {
+            // Visual feedback
+            const originalText = saveSettingsBtn.innerText;
+            saveSettingsBtn.innerText = 'บันทึกแล้ว!';
+            setTimeout(() => {
+                saveSettingsBtn.innerText = originalText;
+                settingsModal.classList.add('hidden');
+            }, 1000);
+        });
+    });
+
+    // Button Logic
     analyzeBtn.addEventListener('click', async () => {
         const productName = document.getElementById('productName').value || "สินค้า";
-        const apiKey = "YOUR_OPENAI_API_KEY";
 
-        analyzeBtn.innerHTML = '<span class="icon">⏳</span> Generating...';
-        analyzeBtn.disabled = true;
+        // Get API Key from storage
+        chrome.storage.local.get(['chatgptApiKey'], async (result) => {
+            const apiKey = result.chatgptApiKey;
 
-        const prompt = `A high-quality cinematic commercial shot based on the attached reference image.
+            if (!apiKey) {
+                alert("กรุณาใส่ ChatGPT API Key ในหน้าตั้งค่าก่อนครับ");
+                settingsBtn.click(); // Open settings for the user
+                return;
+            }
+
+            analyzeBtn.innerHTML = '<span class="icon">⏳</span> Generating...';
+            analyzeBtn.disabled = true;
+
+            const prompt = `A high-quality cinematic commercial shot based on the attached reference image.
 Recreate the scene with the same camera angle, subject position, lighting style, color tone, and atmosphere as shown in the image.
 The person in the video should match the appearance and clothing style from the attached photo, acting naturally and confidently on camera.
 The product being promoted is: “${productName}”.
@@ -76,42 +136,43 @@ Use professional soft lighting, realistic textures, natural skin detail, and 4K 
 Shallow depth of field, smooth camera motion, and high dynamic range.
 Overall look should be realistic, premium, and visually appealing.`;
 
-        try {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: "gpt-4o-mini",
-                    messages: [
-                        {
-                            role: "user",
-                            content: prompt
-                        }
-                    ],
-                    max_tokens: 300
-                })
-            });
+            try {
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: "gpt-4o-mini",
+                        messages: [
+                            {
+                                role: "user",
+                                content: prompt
+                            }
+                        ],
+                        max_tokens: 300
+                    })
+                });
 
-            const data = await response.json();
+                const data = await response.json();
 
-            if (data.choices && data.choices.length > 0) {
-                const generatedText = data.choices[0].message.content.trim();
-                document.getElementById('scriptInput').value = generatedText;
-            } else {
-                console.error("API Error:", data);
-                alert("Failed to generate prompt. Please try again.");
+                if (data.choices && data.choices.length > 0) {
+                    const generatedText = data.choices[0].message.content.trim();
+                    document.getElementById('scriptInput').value = generatedText;
+                } else {
+                    console.error("API Error:", data);
+                    alert("Failed to generate prompt. Please check your API Key.");
+                }
+
+            } catch (error) {
+                console.error("Fetch Error:", error);
+                alert("Error connecting to AI service.");
+            } finally {
+                analyzeBtn.innerHTML = '<span class="icon">✨</span> Generate Prompt';
+                analyzeBtn.disabled = false;
             }
-
-        } catch (error) {
-            console.error("Fetch Error:", error);
-            alert("Error connecting to AI service.");
-        } finally {
-            analyzeBtn.innerHTML = '<span class="icon">✨</span> Generate Prompt';
-            analyzeBtn.disabled = false;
-        }
+        });
     });
 
     createBtn.addEventListener('click', async () => {
