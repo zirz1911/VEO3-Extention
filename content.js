@@ -51,17 +51,13 @@ async function clickStart() {
     console.warn("⚠️ Start button not found after retries");
 }
 
-// ── Step 2: intercept input[type=file] ทันทีที่โผล่ แล้ว inject ──────────────
+// ── Step 2: block file input ทั้งที่มีอยู่แล้ว + ที่จะสร้างใหม่ แล้ว inject ──
 async function clickUploadImage(imageData) {
-    console.log("Step 2: Preparing to intercept file input...");
+    console.log("Step 2: Setting up file input blocker...");
     const xpath = '//button[.//i[contains(@class,"google-symbols") and normalize-space(text())="upload"]]';
 
-    if (!imageData) {
-        console.warn("⚠️ No imageData provided");
-        return;
-    }
+    if (!imageData) { console.warn("⚠️ No imageData"); return; }
 
-    // เตรียมไฟล์ไว้ก่อน
     const res = await fetch(imageData);
     const blob = await res.blob();
     const file = new File([blob], "product_image.png", { type: "image/png" });
@@ -71,49 +67,47 @@ async function clickUploadImage(imageData) {
     for (let i = 0; i < 20; i++) {
         btn = getElementByXPath(xpath);
         if (btn) break;
-        console.log("⏳ Upload button not found, retrying...");
         await new Promise(r => setTimeout(r, 500));
     }
+    if (!btn) { console.warn("⚠️ Upload button not found"); return; }
 
-    if (!btn) {
-        console.warn("⚠️ Upload button not found");
-        return;
+    function blockFileInput(input) {
+        if (input._blocked) return;
+        input._blocked = true;
+        input.click = () => console.log("🚫 Blocked native file picker");
+        console.log("🔒 Blocked file input:", input);
     }
 
-    // ตั้ง MutationObserver ไว้ก่อน — จับ input[type=file] ทันทีที่โผล่
-    await new Promise((resolve) => {
-        const observer = new MutationObserver(() => {
-            const fileInput = document.querySelector('input[type="file"]');
-            if (!fileInput || fileInput._injected) return;
-            fileInput._injected = true;
-            observer.disconnect();
+    // Block file inputs ที่มีอยู่แล้วใน DOM
+    document.querySelectorAll('input[type="file"]').forEach(blockFileInput);
 
-            // Block native file picker
-            fileInput.click = () => { console.log("🚫 Blocked native file picker"); };
-
-            // Inject file via native setter
-            const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'files')?.set;
-            if (nativeSetter) nativeSetter.call(fileInput, (() => { const dt = new DataTransfer(); dt.items.add(file); return dt.files; })());
-            else { const dt = new DataTransfer(); dt.items.add(file); fileInput.files = dt.files; }
-
-            fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-            fileInput.dispatchEvent(new Event('input', { bubbles: true }));
-            console.log("✅ File injected via intercepted input");
-
-            setTimeout(resolve, 3000);
-        });
-
-        observer.observe(document.body, { childList: true, subtree: true });
-
-        // กดปุ่ม → React สร้าง input[type=file] → Observer จับได้ทันที
-        btn.click();
-        console.log("✅ Clicked Upload button, waiting for file input...");
-
-        // Timeout 10s กัน observer ค้าง
-        setTimeout(() => { observer.disconnect(); resolve(); }, 10000);
+    // Observer จับ input ที่จะสร้างใหม่
+    const observer = new MutationObserver(() => {
+        document.querySelectorAll('input[type="file"]').forEach(blockFileInput);
     });
+    observer.observe(document.body, { childList: true, subtree: true });
 
-    await new Promise(r => setTimeout(r, 1000));
+    // กดปุ่ม
+    btn.click();
+    console.log("✅ Clicked Upload button");
+    await new Promise(r => setTimeout(r, 800));
+    observer.disconnect();
+
+    // Inject file
+    const fileInput = document.querySelector('input[type="file"]');
+    if (!fileInput) { console.warn("⚠️ File input not found after click"); return; }
+
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'files')?.set;
+    if (nativeSetter) nativeSetter.call(fileInput, dt.files);
+    else fileInput.files = dt.files;
+
+    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+    console.log("✅ File injected");
+
+    await new Promise(r => setTimeout(r, 3000));
 }
 
 // ── Step 3: ใส่ Prompt ในช่อง Slate editor ──────────────────────────────────
