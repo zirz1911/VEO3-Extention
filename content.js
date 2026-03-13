@@ -51,52 +51,45 @@ async function clickStart() {
     console.warn("⚠️ Start button not found after retries");
 }
 
-// ── Step 2: กดอัปโหลดรูปภาพ + inject file ──────────────────────────────────
+// ── Step 2: inject file เข้า input[type="file"] โดยตรง ─────────────────────
 async function clickUploadImage(imageData) {
-    console.log("Step 2: Looking for Upload Image button...");
-    const xpath = '//button[.//span[normalize-space(text())="อัปโหลดรูปภาพ" or normalize-space(text())="Upload Image"]]';
+    console.log("Step 2: Injecting image into file input...");
 
-    let btn = null;
-    for (let i = 0; i < 20; i++) {
-        btn = getElementByXPath(xpath);
-        if (btn) break;
-        console.log("⏳ Upload button not found, retrying...");
-        await new Promise(r => setTimeout(r, 500));
-    }
-
-    if (!btn) {
-        console.warn("⚠️ Upload Image button not found");
+    if (!imageData) {
+        console.warn("⚠️ No imageData provided");
         return;
     }
 
-    btn.click();
-    console.log("✅ Clicked Upload Image button");
-    await new Promise(r => setTimeout(r, 1000));
+    // รอจน file input ปรากฏใน DOM
+    let fileInput = null;
+    for (let i = 0; i < 20; i++) {
+        fileInput = document.querySelector('input[type="file"]');
+        if (fileInput) break;
+        console.log("⏳ File input not found, retrying...");
+        await new Promise(r => setTimeout(r, 500));
+    }
 
-    if (!imageData) return;
+    if (!fileInput) {
+        console.warn("⚠️ File input not found");
+        return;
+    }
 
-    // Inject image into file input
-    const fileInput = document.querySelector('input[type="file"]');
-    if (fileInput) {
-        try {
-            const res = await fetch(imageData);
-            const blob = await res.blob();
-            const file = new File([blob], "product_image.png", { type: "image/png" });
+    try {
+        const res = await fetch(imageData);
+        const blob = await res.blob();
+        const file = new File([blob], "product_image.png", { type: "image/png" });
 
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            fileInput.files = dataTransfer.files;
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
 
-            fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-            fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        fileInput.dispatchEvent(new Event('input', { bubbles: true }));
 
-            console.log("✅ Image injected successfully");
-            await new Promise(r => setTimeout(r, 2000));
-        } catch (err) {
-            console.error("❌ Failed to inject image:", err);
-        }
-    } else {
-        console.warn("⚠️ File input not found after clicking Upload");
+        console.log("✅ Image injected successfully");
+        await new Promise(r => setTimeout(r, 2000));
+    } catch (err) {
+        console.error("❌ Failed to inject image:", err);
     }
 }
 
