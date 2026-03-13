@@ -71,17 +71,17 @@ async function clickUploadImage(imageData) {
     }
     if (!btn) { console.warn("⚠️ Upload button not found"); return; }
 
-    // Override prototype.click เพื่อบล็อกทุก path (instance + prototype call)
-    const originalProtoClick = HTMLInputElement.prototype.click;
-    HTMLInputElement.prototype.click = function() {
-        if (this.type === 'file') {
-            console.log("🚫 Blocked file input via prototype override");
-            return;
+    // Block click event บน file input ด้วย capture phase (preventDefault)
+    const blockPickerHandler = (e) => {
+        if (e.target.type === 'file') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            console.log("🚫 Blocked file picker via event capture");
         }
-        return originalProtoClick.call(this);
     };
+    document.addEventListener('click', blockPickerHandler, true);
 
-    // Observer จับ input ที่จะสร้างใหม่ (เผื่อกรณีสร้าง dynamic)
+    // Observer จับ input ที่จะสร้างใหม่
     const observer = new MutationObserver(() => {
         document.querySelectorAll('input[type="file"]').forEach(i => {
             if (!i._logged) { i._logged = true; console.log("🔒 New file input detected:", i); }
@@ -95,8 +95,8 @@ async function clickUploadImage(imageData) {
     await new Promise(r => setTimeout(r, 800));
     observer.disconnect();
 
-    // Restore prototype
-    HTMLInputElement.prototype.click = originalProtoClick;
+    // Remove block handler
+    document.removeEventListener('click', blockPickerHandler, true);
 
     // Inject file
     const fileInput = document.querySelector('input[type="file"]');
