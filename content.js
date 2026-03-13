@@ -19,13 +19,17 @@ async function handleGeneration(data) {
         await clickUploadImage(data.imageData);
         await new Promise(r => setTimeout(r, 2000));
 
-        // Step 3: ใส่ Prompt (Slate editor)
+        // Step 3: เลือก Ratio + Quantity
+        await selectRatioAndQuantity(data.ratio, data.quantity);
+        await new Promise(r => setTimeout(r, 500));
+
+        // Step 4: ใส่ Prompt (Slate editor)
         if (data.script) {
             await setPromptSlate(data.script);
             await new Promise(r => setTimeout(r, 1000));
         }
 
-        // Step 4: กด Generate (รอจนปุ่ม enabled)
+        // Step 5: กด Generate (รอจนปุ่ม enabled)
         // await clickGenerateButton(); // 🔒 ปิดไว้ชั่วคราว — ทดสอบ upload ก่อน
 
     } catch (error) {
@@ -159,7 +163,56 @@ async function waitForUploadAndSelect() {
     await new Promise(r => setTimeout(r, 500));
 }
 
-// ── Step 3: ใส่ Prompt ในช่อง Slate editor ──────────────────────────────────
+// ── Step 3: เลือก Ratio + Quantity จาก dropdown ─────────────────────────────
+async function selectRatioAndQuantity(ratio, quantity) {
+    console.log(`Step 3: Selecting ratio=${ratio}, quantity=${quantity}...`);
+
+    // เปิด dropdown โดยกดปุ่ม "วิดีโอ x1 crop_9_16"
+    const triggerBtn = document.querySelector('.sc-46973129-1');
+    if (!triggerBtn) { console.warn("⚠️ Dropdown trigger button not found"); return; }
+
+    triggerBtn.click();
+    console.log("✅ Opened settings dropdown");
+    await new Promise(r => setTimeout(r, 600));
+
+    // รอ dropdown เปิด
+    let menu = null;
+    for (let i = 0; i < 10; i++) {
+        menu = document.querySelector('[data-radix-menu-content]');
+        if (menu) break;
+        await new Promise(r => setTimeout(r, 300));
+    }
+    if (!menu) { console.warn("⚠️ Dropdown menu not found"); return; }
+
+    // เลือก Ratio (LANDSCAPE = 16:9, PORTRAIT = 9:16)
+    const ratioContentId = ratio === '16:9' ? 'LANDSCAPE' : 'PORTRAIT';
+    const ratioTab = menu.querySelector(`[aria-controls$="-content-${ratioContentId}"]`);
+    if (ratioTab) {
+        ratioTab.click();
+        console.log(`✅ Selected ratio: ${ratioContentId}`);
+        await new Promise(r => setTimeout(r, 300));
+    } else {
+        console.warn(`⚠️ Ratio tab not found: ${ratioContentId}`);
+    }
+
+    // เลือก Quantity (x1, x2, x3, x4)
+    const qty = String(parseInt(quantity) || 1);
+    const qtyTab = menu.querySelector(`[aria-controls$="-content-${qty}"]`);
+    if (qtyTab) {
+        qtyTab.click();
+        console.log(`✅ Selected quantity: x${qty}`);
+        await new Promise(r => setTimeout(r, 300));
+    } else {
+        console.warn(`⚠️ Quantity tab not found: ${qty}`);
+    }
+
+    // ปิด dropdown โดยกด Escape หรือคลิกนอก
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await new Promise(r => setTimeout(r, 400));
+    console.log("✅ Closed dropdown");
+}
+
+// ── Step 4: ใส่ Prompt ในช่อง Slate editor ──────────────────────────────────
 async function setPromptSlate(text) {
     console.log("Step 3: Looking for Slate editor...");
 
