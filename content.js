@@ -51,16 +51,31 @@ async function clickStart() {
     console.warn("⚠️ Start button not found after retries");
 }
 
-// ── Step 2: inject file เข้า input[type="file"] โดยตรง ─────────────────────
+// ── Step 2: กดปุ่ม Upload (นำทางไปหน้า Prompt) แล้ว inject file ─────────────
 async function clickUploadImage(imageData) {
-    console.log("Step 2: Injecting image into file input...");
+    console.log("Step 2: Looking for Upload Image button...");
+    const xpath = '//button[.//span[normalize-space(text())="อัปโหลดรูปภาพ" or normalize-space(text())="Upload Image"]]';
 
-    if (!imageData) {
-        console.warn("⚠️ No imageData provided");
+    let btn = null;
+    for (let i = 0; i < 20; i++) {
+        btn = getElementByXPath(xpath);
+        if (btn) break;
+        console.log("⏳ Upload button not found, retrying...");
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    if (!btn) {
+        console.warn("⚠️ Upload Image button not found");
         return;
     }
 
-    // รอจน file input ปรากฏใน DOM
+    btn.click();
+    console.log("✅ Clicked Upload Image button");
+    await new Promise(r => setTimeout(r, 1000));
+
+    if (!imageData) return;
+
+    // รอจน file input ปรากฏใน DOM หลังจากกดปุ่ม
     let fileInput = null;
     for (let i = 0; i < 20; i++) {
         fileInput = document.querySelector('input[type="file"]');
