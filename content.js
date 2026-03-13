@@ -122,25 +122,24 @@ async function clickUploadImage(imageData) {
 
 // รอ upload เสร็จ → คลิก image ล่าสุดใน media library → รอ dialog ปิด
 async function waitForUploadAndSelect() {
-    // นับจำนวน item เดิมก่อน upload
-    const countBefore = document.querySelectorAll('[data-index]').length;
-    console.log(`⏳ Media items before upload: ${countBefore}`);
+    // จำ src ของ item แรกก่อน upload
+    const firstImgBefore = document.querySelector('[data-index="0"] img')?.src || '';
+    console.log(`⏳ Waiting for new image to appear in media list...`);
 
-    // รอ item ใหม่โผล่ (max 30s)
+    // รอจน img src ของ item[0] เปลี่ยน (= ภาพใหม่ขึ้นมาอยู่บนสุด)
     let newItem = null;
     for (let i = 0; i < 60; i++) {
-        const items = document.querySelectorAll('[data-index]');
-        if (items.length > countBefore) {
-            // item แรก (index 0) = ล่าสุด
-            newItem = items[0];
-            console.log(`✅ New media item detected (${items.length} items)`);
+        const firstImg = document.querySelector('[data-index="0"] img');
+        if (firstImg && firstImg.src !== firstImgBefore) {
+            newItem = document.querySelector('[data-index="0"]');
+            console.log(`✅ New image detected at top of media list`);
             break;
         }
         await new Promise(r => setTimeout(r, 500));
     }
 
     if (!newItem) {
-        console.warn("⚠️ No new media item detected, trying first item anyway");
+        console.warn("⚠️ Image src didn't change, clicking first item anyway");
         newItem = document.querySelector('[data-index="0"]');
     }
 
@@ -167,18 +166,19 @@ async function waitForUploadAndSelect() {
 async function selectRatioAndQuantity(ratio, quantity) {
     console.log(`Step 3: Selecting ratio=${ratio}, quantity=${quantity}...`);
 
-    // เปิด dropdown โดยกดปุ่ม "วิดีโอ x1 crop_9_16"
-    const triggerBtn = document.querySelector('.sc-46973129-1');
+    // เปิด dropdown — หาปุ่มที่มี icon crop ratio + aria-haspopup="menu"
+    const triggerBtn = Array.from(document.querySelectorAll('button[aria-haspopup="menu"]'))
+        .find(b => b.querySelector('i.google-symbols')?.textContent.includes('crop_'));
     if (!triggerBtn) { console.warn("⚠️ Dropdown trigger button not found"); return; }
 
     triggerBtn.click();
     console.log("✅ Opened settings dropdown");
-    await new Promise(r => setTimeout(r, 600));
 
-    // รอ dropdown เปิด
+    // รอ dropdown เปิด (role="menu" หรือ data-radix-menu-content)
     let menu = null;
-    for (let i = 0; i < 10; i++) {
-        menu = document.querySelector('[data-radix-menu-content]');
+    for (let i = 0; i < 20; i++) {
+        menu = document.querySelector('[role="menu"][data-state="open"]') ||
+               document.querySelector('[data-radix-menu-content]');
         if (menu) break;
         await new Promise(r => setTimeout(r, 300));
     }
