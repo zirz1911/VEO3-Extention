@@ -168,37 +168,48 @@ async function waitForUploadAndSelect() {
     await new Promise(r => setTimeout(r, 500));
 }
 
+// helper: human-like click
+function humanClick(el) {
+    ['pointerdown','mousedown','pointerup','mouseup','click'].forEach(type => {
+        el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, button: 0, buttons: 1, composed: true }));
+    });
+}
+
 // ── Step 3: เลือก Ratio + Quantity จาก dropdown ─────────────────────────────
 async function selectRatioAndQuantity(ratio, quantity) {
     console.log(`Step 3: Selecting ratio=${ratio}, quantity=${quantity}...`);
 
-    // เปิด dropdown ด้วย class sc-46973129-1 (settings/ratio trigger)
+    // เปิด dropdown ด้วย human-like click
     const triggerBtn = document.querySelector('button.sc-46973129-1');
     if (!triggerBtn) { console.warn("⚠️ Dropdown trigger not found"); return; }
 
-    triggerBtn.click();
+    humanClick(triggerBtn);
     console.log("✅ Clicked settings dropdown trigger");
-    await new Promise(r => setTimeout(r, 1000)); // รอ animation เปิด
 
-    // Query tabs โดยตรงใน DOM (Radix render ใน portal ที่ document.body)
+    // รอ tabs โผล่ใน DOM (Radix portal)
     const ratioContentId = ratio === '16:9' ? 'LANDSCAPE' : 'PORTRAIT';
     const qty = String(parseInt(quantity) || 1);
 
-    // เลือก Ratio
-    const ratioTab = document.querySelector(`button[aria-controls$="-content-${ratioContentId}"]`);
+    let ratioTab = null;
+    for (let i = 0; i < 20; i++) {
+        ratioTab = document.querySelector(`button[aria-controls$="-content-${ratioContentId}"]`);
+        if (ratioTab) break;
+        await new Promise(r => setTimeout(r, 200));
+    }
+
     if (ratioTab) {
-        ratioTab.click();
+        humanClick(ratioTab);
         console.log(`✅ Selected ratio: ${ratioContentId}`);
         await new Promise(r => setTimeout(r, 300));
     } else {
         console.warn(`⚠️ Ratio tab not found: ${ratioContentId}`);
     }
 
-    // เลือก Quantity
-    const qtyTab = Array.from(document.querySelectorAll(`button[aria-controls$="-content-${qty}"]`))
+    // Quantity — เฉพาะ tab ที่มี text "x{qty}" (กัน collision กับ LANDSCAPE/PORTRAIT ที่มี -content-1 บางกรณี)
+    const qtyTab = Array.from(document.querySelectorAll(`button[role="tab"]`))
         .find(b => b.textContent.trim() === `x${qty}`);
     if (qtyTab) {
-        qtyTab.click();
+        humanClick(qtyTab);
         console.log(`✅ Selected quantity: x${qty}`);
         await new Promise(r => setTimeout(r, 300));
     } else {
@@ -216,18 +227,19 @@ async function selectModel(modelName) {
     if (!modelName) return;
     console.log(`Step 3.5: Selecting model: ${modelName}...`);
 
-    // ปุ่ม model dropdown มี class sc-a0dcecfb-1
-    const modelBtn = document.querySelector('button.sc-a0dcecfb-1');
+    // หาปุ่ม model จาก text content (stable กว่า class)
+    const modelBtn = Array.from(document.querySelectorAll('button[aria-haspopup="menu"]'))
+        .find(b => b.textContent.includes('Veo'));
     if (!modelBtn) { console.warn("⚠️ Model button not found"); return; }
 
-    modelBtn.click();
+    humanClick(modelBtn);
     await new Promise(r => setTimeout(r, 600));
 
-    // หา menu item ที่ตรงกับ modelName
-    const items = document.querySelectorAll('[role="menuitem"] .sc-a0dcecfb-8');
-    const target = Array.from(items).find(el => el.textContent.trim() === modelName);
+    // หา menu item จาก text ตรงกับ modelName
+    const items = document.querySelectorAll('[role="menuitem"] button');
+    const target = Array.from(items).find(b => b.textContent.includes(modelName));
     if (target) {
-        target.closest('[role="menuitem"]').querySelector('button')?.click();
+        humanClick(target);
         console.log(`✅ Selected model: ${modelName}`);
     } else {
         console.warn(`⚠️ Model option not found: ${modelName}`);
