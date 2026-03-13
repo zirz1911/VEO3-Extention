@@ -51,24 +51,22 @@ async function clickStart() {
     console.warn("⚠️ Start button not found after retries");
 }
 
-// ── Step 2: drop ไฟล์ลงบนปุ่ม Upload (bypass file picker) ──────────────────
+// ── Step 2: intercept input[type=file] ทันทีที่โผล่ แล้ว inject ──────────────
 async function clickUploadImage(imageData) {
-    console.log("Step 2: Looking for Upload Image button to drop file onto...");
-    const xpath = '//button[.//span[normalize-space(text())="อัปโหลดรูปภาพ" or normalize-space(text())="Upload Image"]]';
+    console.log("Step 2: Preparing to intercept file input...");
+    const xpath = '//button[.//i[contains(@class,"google-symbols") and normalize-space(text())="upload"]]';
 
     if (!imageData) {
         console.warn("⚠️ No imageData provided");
         return;
     }
 
-    // เตรียมไฟล์ก่อน
+    // เตรียมไฟล์ไว้ก่อน
     const res = await fetch(imageData);
     const blob = await res.blob();
     const file = new File([blob], "product_image.png", { type: "image/png" });
-    const dataTransfer = new DataTransfer();
-    dataTransfer.items.add(file);
 
-    // รอปุ่ม Upload ปรากฏใน dialog
+    // รอปุ่ม Upload
     let btn = null;
     for (let i = 0; i < 20; i++) {
         btn = getElementByXPath(xpath);
@@ -82,29 +80,40 @@ async function clickUploadImage(imageData) {
         return;
     }
 
-    // Drop ไฟล์ลงบนปุ่มโดยตรง (bypass native file picker)
-    const dragOpts = { bubbles: true, cancelable: true, dataTransfer };
-    btn.dispatchEvent(new DragEvent('dragenter', dragOpts));
-    await new Promise(r => setTimeout(r, 100));
-    btn.dispatchEvent(new DragEvent('dragover', dragOpts));
-    await new Promise(r => setTimeout(r, 100));
-    btn.dispatchEvent(new DragEvent('drop', dragOpts));
-    console.log("✅ Dropped file onto Upload button");
-    await new Promise(r => setTimeout(r, 2000));
+    // ตั้ง MutationObserver ไว้ก่อน — จับ input[type=file] ทันทีที่โผล่
+    await new Promise((resolve) => {
+        const observer = new MutationObserver(() => {
+            const fileInput = document.querySelector('input[type="file"]');
+            if (!fileInput || fileInput._injected) return;
+            fileInput._injected = true;
+            observer.disconnect();
 
-    // Fallback: inject ผ่าน file input ถ้า drop ไม่ work
-    const fileInput = document.querySelector('input[type="file"]');
-    if (fileInput) {
-        const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'files')?.set;
-        if (nativeSetter) nativeSetter.call(fileInput, dataTransfer.files);
-        else fileInput.files = dataTransfer.files;
+            // Block native file picker
+            fileInput.click = () => { console.log("🚫 Blocked native file picker"); };
 
-        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-        fileInput.dispatchEvent(new Event('input', { bubbles: true }));
-        console.log("✅ Fallback: file injected via input");
-    }
+            // Inject file via native setter
+            const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'files')?.set;
+            if (nativeSetter) nativeSetter.call(fileInput, (() => { const dt = new DataTransfer(); dt.items.add(file); return dt.files; })());
+            else { const dt = new DataTransfer(); dt.items.add(file); fileInput.files = dt.files; }
 
-    await new Promise(r => setTimeout(r, 3000));
+            fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+            fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+            console.log("✅ File injected via intercepted input");
+
+            setTimeout(resolve, 3000);
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        // กดปุ่ม → React สร้าง input[type=file] → Observer จับได้ทันที
+        btn.click();
+        console.log("✅ Clicked Upload button, waiting for file input...");
+
+        // Timeout 10s กัน observer ค้าง
+        setTimeout(() => { observer.disconnect(); resolve(); }, 10000);
+    });
+
+    await new Promise(r => setTimeout(r, 1000));
 }
 
 // ── Step 3: ใส่ Prompt ในช่อง Slate editor ──────────────────────────────────
