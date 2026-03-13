@@ -26,7 +26,7 @@ async function handleGeneration(data) {
         }
 
         // Step 4: กด Generate (รอจนปุ่ม enabled)
-        await clickGenerateButton();
+        // await clickGenerateButton(); // 🔒 ปิดไว้ชั่วคราว — ทดสอบ upload ก่อน
 
     } catch (error) {
         console.error("Error during generation:", error);
@@ -86,7 +86,7 @@ async function clickUploadImage(imageData) {
         fileInput.dispatchEvent(new Event('input', { bubbles: true }));
 
         console.log("✅ Image injected successfully");
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 5000));
     } catch (err) {
         console.error("❌ Failed to inject image:", err);
     }
