@@ -103,55 +103,52 @@ async function clickUploadImage(imageData) {
 
 // ── Step 3: ใส่ Prompt ในช่อง Slate editor ──────────────────────────────────
 async function setPromptSlate(text) {
-    console.log("Step 3: Looking for Prompt input (Slate)...");
-    const xpath = '//span[@data-slate-placeholder="true" and (contains(text(),"คุณต้องการสร้างอะไร") or contains(text(),"What do you want to create"))]';
+    console.log("Step 3: Looking for Slate editor...");
 
-    let placeholder = null;
+    // Target โดยตรงจาก data-slate-editor attribute
+    let editable = null;
     for (let i = 0; i < 20; i++) {
-        placeholder = getElementByXPath(xpath);
-        if (placeholder) break;
-        console.log("⏳ Prompt placeholder not found, retrying...");
+        editable = document.querySelector('[data-slate-editor="true"][contenteditable="true"]');
+        if (editable) break;
+        console.log("⏳ Slate editor not found, retrying...");
         await new Promise(r => setTimeout(r, 500));
     }
 
-    if (!placeholder) {
-        console.warn("⚠️ Prompt placeholder not found");
-        return;
-    }
-
-    // หา contenteditable parent
-    const editable = placeholder.closest('[contenteditable="true"]');
     if (!editable) {
-        console.warn("⚠️ contenteditable parent not found");
+        console.warn("⚠️ Slate editor not found");
         return;
     }
 
-    // Click เพื่อ focus + วาง cursor
+    // Click + focus เพื่อให้ Slate ตั้ง internal selection
     editable.click();
     editable.focus();
     await new Promise(r => setTimeout(r, 300));
 
-    // Select all content เดิมแล้วลบ
-    document.execCommand('selectAll', false, null);
+    // วาง cursor ที่ตำแหน่ง 0 ผ่าน Selection API
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.setStart(editable, 0);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
     await new Promise(r => setTimeout(r, 100));
 
-    // ใส่ text ผ่าน beforeinput event (Slate รับ inputType='insertText')
-    const inputEvent = new InputEvent('beforeinput', {
+    // ยิง beforeinput ที่ Slate ฟังอยู่
+    editable.dispatchEvent(new InputEvent('beforeinput', {
         bubbles: true,
         cancelable: true,
         inputType: 'insertText',
         data: text,
-    });
-    editable.dispatchEvent(inputEvent);
+    }));
     await new Promise(r => setTimeout(r, 200));
 
-    // Fallback: execCommand ถ้า beforeinput ไม่ work
-    if (!editable.textContent.trim()) {
-        console.log("⚠️ beforeinput fallback to execCommand");
+    // Fallback: execCommand ถ้า Slate ยังไม่รับ
+    if (!editable.textContent.replace(/\uFEFF/g, '').trim()) {
+        console.log("⚠️ Fallback: execCommand insertText");
         document.execCommand('insertText', false, text);
     }
 
-    console.log("✅ Prompt inserted:", text.substring(0, 40) + "...");
+    console.log("✅ Prompt inserted:", text.substring(0, 50) + "...");
     await new Promise(r => setTimeout(r, 500));
 }
 
