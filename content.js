@@ -51,20 +51,31 @@ async function clickStart() {
     console.warn("⚠️ Start button not found after retries");
 }
 
-// ── Step 2: inject file เข้า input[type="file"] โดยตรง (ไม่กดปุ่ม) ──────────
+// ── Step 2: กดปุ่ม Upload (XPath) แต่บล็อก native file picker + inject file ──
 async function clickUploadImage(imageData) {
-    console.log("Step 2: Injecting image into file input...");
+    console.log("Step 2: Looking for Upload Image button...");
+    const xpath = '//button[.//span[normalize-space(text())="อัปโหลดรูปภาพ" or normalize-space(text())="Upload Image"]]';
 
-    if (!imageData) {
-        console.warn("⚠️ No imageData provided");
+    let btn = null;
+    for (let i = 0; i < 20; i++) {
+        btn = getElementByXPath(xpath);
+        if (btn) break;
+        console.log("⏳ Upload button not found, retrying...");
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    if (!btn) {
+        console.warn("⚠️ Upload Image button not found");
         return;
     }
 
+    if (!imageData) return;
+
+    // รอ file input ปรากฏใน DOM
     let fileInput = null;
     for (let i = 0; i < 20; i++) {
         fileInput = document.querySelector('input[type="file"]');
         if (fileInput) break;
-        console.log("⏳ File input not found, retrying...");
         await new Promise(r => setTimeout(r, 500));
     }
 
@@ -73,6 +84,20 @@ async function clickUploadImage(imageData) {
         return;
     }
 
+    // บล็อก native file picker ก่อนกดปุ่ม
+    const originalClick = fileInput.click.bind(fileInput);
+    fileInput.click = () => {
+        console.log("🚫 Blocked native file picker");
+    };
+
+    btn.click();
+    console.log("✅ Clicked Upload button (file picker blocked)");
+    await new Promise(r => setTimeout(r, 500));
+
+    // Restore .click() คืน
+    fileInput.click = originalClick;
+
+    // Inject file
     try {
         const res = await fetch(imageData);
         const blob = await res.blob();
