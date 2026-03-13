@@ -306,6 +306,7 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
             productName: document.getElementById('productName').value,
             ratio: document.getElementById('ratioSelect').value,
             quantity: document.getElementById('quantitySelect').value,
+            veoModel: document.getElementById('veoModelSelect').value,
             camera: document.querySelector('input[name="camera"]:checked').value,
             script: document.getElementById('scriptInput').value,
             imageData: null

@@ -23,6 +23,12 @@ async function handleGeneration(data) {
         await selectRatioAndQuantity(data.ratio, data.quantity);
         await new Promise(r => setTimeout(r, 500));
 
+        // Step 3.5: เลือก Veo Model
+        if (data.veoModel) {
+            await selectModel(data.veoModel);
+            await new Promise(r => setTimeout(r, 500));
+        }
+
         // Step 4: ใส่ Prompt (Slate editor)
         if (data.script) {
             await setPromptSlate(data.script);
@@ -166,27 +172,20 @@ async function waitForUploadAndSelect() {
 async function selectRatioAndQuantity(ratio, quantity) {
     console.log(`Step 3: Selecting ratio=${ratio}, quantity=${quantity}...`);
 
-    // เปิด dropdown — หาปุ่มที่มี icon crop ratio + aria-haspopup="menu"
-    const triggerBtn = Array.from(document.querySelectorAll('button[aria-haspopup="menu"]'))
-        .find(b => b.querySelector('i.google-symbols')?.textContent.includes('crop_'));
-    if (!triggerBtn) { console.warn("⚠️ Dropdown trigger button not found"); return; }
+    // เปิด dropdown ด้วย class sc-46973129-1 (settings/ratio trigger)
+    const triggerBtn = document.querySelector('button.sc-46973129-1');
+    if (!triggerBtn) { console.warn("⚠️ Dropdown trigger not found"); return; }
 
     triggerBtn.click();
-    console.log("✅ Opened settings dropdown");
+    console.log("✅ Clicked settings dropdown trigger");
+    await new Promise(r => setTimeout(r, 1000)); // รอ animation เปิด
 
-    // รอ dropdown เปิด (role="menu" หรือ data-radix-menu-content)
-    let menu = null;
-    for (let i = 0; i < 20; i++) {
-        menu = document.querySelector('[role="menu"][data-state="open"]') ||
-               document.querySelector('[data-radix-menu-content]');
-        if (menu) break;
-        await new Promise(r => setTimeout(r, 300));
-    }
-    if (!menu) { console.warn("⚠️ Dropdown menu not found"); return; }
-
-    // เลือก Ratio (LANDSCAPE = 16:9, PORTRAIT = 9:16)
+    // Query tabs โดยตรงใน DOM (Radix render ใน portal ที่ document.body)
     const ratioContentId = ratio === '16:9' ? 'LANDSCAPE' : 'PORTRAIT';
-    const ratioTab = menu.querySelector(`[aria-controls$="-content-${ratioContentId}"]`);
+    const qty = String(parseInt(quantity) || 1);
+
+    // เลือก Ratio
+    const ratioTab = document.querySelector(`button[aria-controls$="-content-${ratioContentId}"]`);
     if (ratioTab) {
         ratioTab.click();
         console.log(`✅ Selected ratio: ${ratioContentId}`);
@@ -195,21 +194,46 @@ async function selectRatioAndQuantity(ratio, quantity) {
         console.warn(`⚠️ Ratio tab not found: ${ratioContentId}`);
     }
 
-    // เลือก Quantity (x1, x2, x3, x4)
-    const qty = String(parseInt(quantity) || 1);
-    const qtyTab = menu.querySelector(`[aria-controls$="-content-${qty}"]`);
+    // เลือก Quantity
+    const qtyTab = Array.from(document.querySelectorAll(`button[aria-controls$="-content-${qty}"]`))
+        .find(b => b.textContent.trim() === `x${qty}`);
     if (qtyTab) {
         qtyTab.click();
         console.log(`✅ Selected quantity: x${qty}`);
         await new Promise(r => setTimeout(r, 300));
     } else {
-        console.warn(`⚠️ Quantity tab not found: ${qty}`);
+        console.warn(`⚠️ Quantity tab not found: x${qty}`);
     }
 
-    // ปิด dropdown โดยกด Escape หรือคลิกนอก
+    // ปิด dropdown
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await new Promise(r => setTimeout(r, 400));
     console.log("✅ Closed dropdown");
+}
+
+// ── Step 3.5: เลือก Veo Model ─────────────────────────────────────────────
+async function selectModel(modelName) {
+    if (!modelName) return;
+    console.log(`Step 3.5: Selecting model: ${modelName}...`);
+
+    // ปุ่ม model dropdown มี class sc-a0dcecfb-1
+    const modelBtn = document.querySelector('button.sc-a0dcecfb-1');
+    if (!modelBtn) { console.warn("⚠️ Model button not found"); return; }
+
+    modelBtn.click();
+    await new Promise(r => setTimeout(r, 600));
+
+    // หา menu item ที่ตรงกับ modelName
+    const items = document.querySelectorAll('[role="menuitem"] .sc-a0dcecfb-8');
+    const target = Array.from(items).find(el => el.textContent.trim() === modelName);
+    if (target) {
+        target.closest('[role="menuitem"]').querySelector('button')?.click();
+        console.log(`✅ Selected model: ${modelName}`);
+    } else {
+        console.warn(`⚠️ Model option not found: ${modelName}`);
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    }
+    await new Promise(r => setTimeout(r, 400));
 }
 
 // ── Step 4: ใส่ Prompt ในช่อง Slate editor ──────────────────────────────────
