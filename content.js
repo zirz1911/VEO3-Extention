@@ -51,54 +51,60 @@ async function clickStart() {
     console.warn("⚠️ Start button not found after retries");
 }
 
-// ── Step 2: inject file เข้า React file input (ใช้ native setter) ────────────
+// ── Step 2: drop ไฟล์ลงบนปุ่ม Upload (bypass file picker) ──────────────────
 async function clickUploadImage(imageData) {
-    console.log("Step 2: Injecting image via React-compatible file input...");
+    console.log("Step 2: Looking for Upload Image button to drop file onto...");
+    const xpath = '//button[.//span[normalize-space(text())="อัปโหลดรูปภาพ" or normalize-space(text())="Upload Image"]]';
 
     if (!imageData) {
         console.warn("⚠️ No imageData provided");
         return;
     }
 
-    // รอ file input ปรากฏใน DOM
-    let fileInput = null;
+    // เตรียมไฟล์ก่อน
+    const res = await fetch(imageData);
+    const blob = await res.blob();
+    const file = new File([blob], "product_image.png", { type: "image/png" });
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+
+    // รอปุ่ม Upload ปรากฏใน dialog
+    let btn = null;
     for (let i = 0; i < 20; i++) {
-        fileInput = document.querySelector('input[type="file"]');
-        if (fileInput) break;
-        console.log("⏳ File input not found, retrying...");
+        btn = getElementByXPath(xpath);
+        if (btn) break;
+        console.log("⏳ Upload button not found, retrying...");
         await new Promise(r => setTimeout(r, 500));
     }
 
-    if (!fileInput) {
-        console.warn("⚠️ File input not found");
+    if (!btn) {
+        console.warn("⚠️ Upload button not found");
         return;
     }
 
-    try {
-        const res = await fetch(imageData);
-        const blob = await res.blob();
-        const file = new File([blob], "product_image.png", { type: "image/png" });
+    // Drop ไฟล์ลงบนปุ่มโดยตรง (bypass native file picker)
+    const dragOpts = { bubbles: true, cancelable: true, dataTransfer };
+    btn.dispatchEvent(new DragEvent('dragenter', dragOpts));
+    await new Promise(r => setTimeout(r, 100));
+    btn.dispatchEvent(new DragEvent('dragover', dragOpts));
+    await new Promise(r => setTimeout(r, 100));
+    btn.dispatchEvent(new DragEvent('drop', dragOpts));
+    console.log("✅ Dropped file onto Upload button");
+    await new Promise(r => setTimeout(r, 2000));
 
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(file);
-
-        // ใช้ native property setter ของ HTMLInputElement เพื่อให้ React รับรู้
+    // Fallback: inject ผ่าน file input ถ้า drop ไม่ work
+    const fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) {
         const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'files')?.set;
-        if (nativeSetter) {
-            nativeSetter.call(fileInput, dataTransfer.files);
-            console.log("✅ Set files via native setter");
-        } else {
-            fileInput.files = dataTransfer.files;
-        }
+        if (nativeSetter) nativeSetter.call(fileInput, dataTransfer.files);
+        else fileInput.files = dataTransfer.files;
 
         fileInput.dispatchEvent(new Event('change', { bubbles: true }));
         fileInput.dispatchEvent(new Event('input', { bubbles: true }));
-
-        console.log("✅ Image injected successfully");
-        await new Promise(r => setTimeout(r, 5000));
-    } catch (err) {
-        console.error("❌ Failed to inject image:", err);
+        console.log("✅ Fallback: file injected via input");
     }
+
+    await new Promise(r => setTimeout(r, 3000));
 }
 
 // ── Step 3: ใส่ Prompt ในช่อง Slate editor ──────────────────────────────────
