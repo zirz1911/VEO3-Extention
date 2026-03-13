@@ -110,9 +110,53 @@ async function clickUploadImage(imageData) {
 
     fileInput.dispatchEvent(new Event('change', { bubbles: true }));
     fileInput.dispatchEvent(new Event('input', { bubbles: true }));
-    console.log("✅ File injected");
+    console.log("✅ File injected — waiting for upload to complete...");
 
-    await new Promise(r => setTimeout(r, 3000));
+    // รอ image ใหม่โผล่ใน media list แล้วคลิก select
+    await waitForUploadAndSelect();
+}
+
+// รอ upload เสร็จ → คลิก image ล่าสุดใน media library → รอ dialog ปิด
+async function waitForUploadAndSelect() {
+    // นับจำนวน item เดิมก่อน upload
+    const countBefore = document.querySelectorAll('[data-index]').length;
+    console.log(`⏳ Media items before upload: ${countBefore}`);
+
+    // รอ item ใหม่โผล่ (max 30s)
+    let newItem = null;
+    for (let i = 0; i < 60; i++) {
+        const items = document.querySelectorAll('[data-index]');
+        if (items.length > countBefore) {
+            // item แรก (index 0) = ล่าสุด
+            newItem = items[0];
+            console.log(`✅ New media item detected (${items.length} items)`);
+            break;
+        }
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    if (!newItem) {
+        console.warn("⚠️ No new media item detected, trying first item anyway");
+        newItem = document.querySelector('[data-index="0"]');
+    }
+
+    if (newItem) {
+        newItem.click();
+        console.log("✅ Clicked newly uploaded image to select it");
+    }
+
+    // รอ dialog ปิด (sc-dbfb6b4a-0 หายออกจาก DOM หรือ Slate editor พร้อม)
+    console.log("⏳ Waiting for dialog to close...");
+    for (let i = 0; i < 30; i++) {
+        const dialogStillOpen = document.querySelector('.sc-dbfb6b4a-0');
+        if (!dialogStillOpen) {
+            console.log("✅ Dialog closed");
+            break;
+        }
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    await new Promise(r => setTimeout(r, 500));
 }
 
 // ── Step 3: ใส่ Prompt ในช่อง Slate editor ──────────────────────────────────
