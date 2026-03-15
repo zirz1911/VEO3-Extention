@@ -1,4 +1,43 @@
+// ── Auto Split: เปิด TikTok Studio ตอน extension โหลด ──────────────────────
+async function ensureTikTokStudioOpen() {
+    const TIKTOK_URL = 'https://www.tiktok.com/tiktokstudio/upload?from=creator_center';
+
+    // เช็คว่า TikTok Studio เปิดอยู่แล้วไหม (ทุก window)
+    const existing = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
+    if (existing.length > 0) {
+        console.log('✅ TikTok Studio already open — skipping');
+        return;
+    }
+
+    // หา window ปัจจุบัน (ที่ side panel attach อยู่)
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!activeTab) return;
+
+    const currentWin = await chrome.windows.get(activeTab.windowId);
+
+    // คำนวณ split position จาก window ปัจจุบัน
+    const totalWidth = currentWin.left + currentWin.width;
+    const halfWidth  = Math.floor(totalWidth / 2);
+    const top        = currentWin.top;
+    const height     = currentWin.height;
+
+    // Resize window ปัจจุบันเป็น left half
+    await chrome.windows.update(currentWin.id, {
+        left: 0, top, width: halfWidth, height
+    });
+
+    // เปิด TikTok Studio ใน right half
+    await chrome.windows.create({
+        url: TIKTOK_URL,
+        left: halfWidth, top, width: totalWidth - halfWidth, height,
+        focused: false   // ไม่แย่ง focus จาก Flow
+    });
+
+    console.log('✅ TikTok Studio opened in split view');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    ensureTikTokStudioOpen();
     const imageUploadArea = document.getElementById('imageUploadArea');
     const productImageInput = document.getElementById('productImageInput');
     const imagePreview = document.getElementById('imagePreview');
