@@ -64,8 +64,15 @@ chrome.runtime.onMessage.addListener((message) => {
     }
 });
 
+function isPopupMode() {
+    return !chrome.sidePanel || document.body.classList.contains('popup-mode');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-    ensureTikTokStudioOpen();
+    // Side panel เท่านั้นที่ auto-open TikTok — popup ไม่ทำ (จะปิดตัวเอง)
+    if (!isPopupMode()) {
+        ensureTikTokStudioOpen();
+    }
 
     // ── TikTok Button ────────────────────────────────────────────────────────
     document.getElementById('tiktokBtn').addEventListener('click', () => {
