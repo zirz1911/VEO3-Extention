@@ -12,33 +12,40 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function handleGeneration(data) {
     try {
         // Step 1: กดเริ่ม / Start
+        sendProgress(1, 'กำลังเริ่มต้น...');
         await clickStart();
         await new Promise(r => setTimeout(r, 1500));
 
         // Step 2: กดอัปโหลดรูปภาพ + inject file
+        sendProgress(2, 'กำลังอัปโหลดรูปภาพ...');
         await clickUploadImage(data.imageData);
         await new Promise(r => setTimeout(r, 2000));
 
         // Step 3: เลือก Ratio + Quantity
+        sendProgress(3, 'กำลังตั้งค่า Ratio + Quantity...');
         await selectRatioAndQuantity(data.ratio, data.quantity);
         await new Promise(r => setTimeout(r, 500));
 
         // Step 3.5: เลือก Veo Model
         if (data.veoModel) {
+            sendProgress(3.5, 'กำลังเลือก Veo Model...');
             await selectModel(data.veoModel);
             await new Promise(r => setTimeout(r, 500));
         }
 
         // Step 4: ใส่ Prompt (Slate editor)
         if (data.script) {
+            sendProgress(4, 'กำลังใส่ Prompt...');
             await setPromptSlate(data.script);
             await new Promise(r => setTimeout(r, 1000));
         }
 
         // Step 5: กด Generate (รอจนปุ่ม enabled)
+        sendProgress(5, 'กำลัง Generate วิดีโอ...');
         await clickGenerateButton();
 
         // Step 6: รอวิดีโอสร้างเสร็จ แล้ว notify side panel
+        sendProgress(6, 'รอวิดีโอสร้างเสร็จ...');
         await waitForVideoReady();
 
     } catch (error) {
@@ -387,6 +394,12 @@ async function waitForVideoReady() {
     // Notify side panel ว่าวิดีโอเสร็จแล้ว
     chrome.runtime.sendMessage({ action: "videoReady" });
     console.log("✅ Notified side panel: videoReady");
+}
+
+// ── Progress reporting ────────────────────────────────────────────────────────
+function sendProgress(step, text) {
+    chrome.runtime.sendMessage({ action: 'progress', running: true, step, text })
+        .catch(() => {}); // ignore error when popup is closed
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

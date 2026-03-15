@@ -38,12 +38,17 @@ chrome.runtime.onMessage.addListener((message) => {
     const createBtn  = document.getElementById('createBtn');
     const cancelBtn  = document.getElementById('cancelBtn');
 
+    if (message.action === 'progress') {
+        statusText.innerText = message.text || 'กำลังทำงาน...';
+    }
+
     if (message.action === 'videoReady') {
         progressFill.classList.remove('pulse');
         progressFill.style.transition = '';
         progressFill.style.width = '100%';
         statusText.innerText = "เสร็จสิ้น! กำลังเปิด TikTok...";
 
+        chrome.storage.session.set({ jobStatus: { running: false, done: true, text: 'เสร็จสิ้น!' } });
         ensureTikTokStudioOpen({ focus: false });
         switchToTikTok();
 
@@ -53,6 +58,7 @@ chrome.runtime.onMessage.addListener((message) => {
             statusText.innerText = "กำลังสร้างวิดีโอ.. รอสักครู่";
             createBtn.disabled = false;
             cancelBtn.disabled = false;
+            chrome.storage.session.remove('jobStatus');
         }, 2000);
     }
 
@@ -61,6 +67,7 @@ chrome.runtime.onMessage.addListener((message) => {
         statusText.innerText = `❌ Error: ${message.error}`;
         createBtn.disabled = false;
         cancelBtn.disabled = false;
+        chrome.storage.session.set({ jobStatus: { running: false, error: message.error } });
     }
 });
 
@@ -104,10 +111,70 @@ document.addEventListener('DOMContentLoaded', () => {
     const soraUI = document.getElementById('soraUI');
 
     const validateForm = () => {
-        const hasImage = productImageInput.files.length > 0;
+        const hasImage = productImageInput.files.length > 0 ||
+            (!imagePreview.classList.contains('hidden') && !!imagePreview.src);
         const hasName = productNameInput.value.trim().length > 0;
         analyzeBtn.disabled = !(hasImage && hasName);
     };
+
+    // ── Session persistence: save form + restore on popup reopen ─────────────
+    function saveFormData() {
+        const imageDataUrl = !imagePreview.classList.contains('hidden') && imagePreview.src
+            ? imagePreview.src : null;
+        chrome.storage.session.set({ formData: {
+            productName: productNameInput.value,
+            ratio: document.getElementById('ratioSelect').value,
+            quantity: document.getElementById('quantitySelect').value,
+            veoModel: document.getElementById('veoModelSelect').value,
+            camera: document.querySelector('input[name="camera"]:checked')?.value || 'static',
+            script: document.getElementById('scriptInput').value,
+            language: document.getElementById('languageSelect').value,
+            imageDataUrl
+        }});
+    }
+
+    function restoreFormData(d) {
+        if (d.productName) productNameInput.value = d.productName;
+        if (d.ratio) document.getElementById('ratioSelect').value = d.ratio;
+        if (d.quantity) document.getElementById('quantitySelect').value = d.quantity;
+        if (d.veoModel) document.getElementById('veoModelSelect').value = d.veoModel;
+        if (d.camera) {
+            const r = document.querySelector(`input[name="camera"][value="${d.camera}"]`);
+            if (r) r.checked = true;
+        }
+        if (d.script) document.getElementById('scriptInput').value = d.script;
+        if (d.language) document.getElementById('languageSelect').value = d.language;
+        if (d.imageDataUrl) {
+            imagePreview.src = d.imageDataUrl;
+            imagePreview.classList.remove('hidden');
+            uploadPlaceholder.classList.add('hidden');
+            removeImageBtn.classList.remove('hidden');
+        }
+        validateForm();
+    }
+
+    // Restore state when popup opens
+    chrome.storage.session.get(['jobStatus', 'formData'], (result) => {
+        if (result.formData) restoreFormData(result.formData);
+        const js = result.jobStatus;
+        if (js?.running) {
+            statusBar.classList.remove('hidden');
+            progressFill.classList.add('pulse');
+            statusText.innerText = js.text || 'กำลังทำงาน...';
+            createBtn.disabled = true;
+            cancelBtn.disabled = true;
+        } else if (js?.done) {
+            statusText.innerText = 'เสร็จสิ้น! ✅';
+            statusBar.classList.remove('hidden');
+            setTimeout(() => {
+                statusBar.classList.add('hidden');
+                chrome.storage.session.remove('jobStatus');
+            }, 3000);
+        } else if (js?.error) {
+            statusText.innerText = `❌ ${js.error}`;
+            statusBar.classList.remove('hidden');
+        }
+    });
 
     productImageInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -119,6 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 uploadPlaceholder.classList.add('hidden');
                 removeImageBtn.classList.remove('hidden');
                 validateForm();
+                saveFormData();
             };
             reader.readAsDataURL(file);
         } else {
@@ -126,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    productNameInput.addEventListener('input', validateForm);
+    productNameInput.addEventListener('input', () => { validateForm(); saveFormData(); });
 
     removeImageBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -136,6 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadPlaceholder.classList.remove('hidden');
         removeImageBtn.classList.add('hidden');
         validateForm();
+        saveFormData();
     });
 
     // SORA Image Upload Logic
@@ -354,6 +423,7 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
 
                 if (generatedText) {
                     document.getElementById('scriptInput').value = generatedText;
+                    saveFormData();
                 }
 
             } catch (error) {
@@ -379,6 +449,7 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
         statusBar.classList.remove('hidden');
         createBtn.disabled = true;
         cancelBtn.disabled = true;
+        chrome.storage.session.set({ jobStatus: { running: true, step: 0, text: 'กำลังเริ่มต้น...' } });
 
         // สลับไปหน้า Flow ให้ content script ทำงานได้
         await switchToFlow();
@@ -394,7 +465,7 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
             imageData: null
         };
 
-        // Read image if selected
+        // Read image if selected, fallback to restored session image
         const file = productImageInput.files[0];
         if (file) {
             try {
@@ -407,6 +478,8 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
             } catch (err) {
                 console.error("Error reading image:", err);
             }
+        } else if (imagePreview.src && !imagePreview.classList.contains('hidden')) {
+            data.imageData = imagePreview.src; // restored from session
         }
 
         // Send message to content script

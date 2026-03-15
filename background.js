@@ -35,3 +35,29 @@ async function applyUiMode() {
         // fallback: ปล่อยให้ manifest default_popup ทำงาน
     }
 }
+
+// ── Persist job state so popup can restore after close/reopen ────────────────
+chrome.runtime.onMessage.addListener((message) => {
+    if (message.action === 'progress') {
+        chrome.storage.session.set({
+            jobStatus: { running: true, step: message.step, text: message.text }
+        });
+    }
+    if (message.action === 'videoReady') {
+        chrome.storage.session.set({
+            jobStatus: { running: false, done: true, text: 'เสร็จสิ้น!' }
+        });
+        // Open TikTok Studio in background if not already open
+        const TIKTOK_URL = 'https://www.tiktok.com/tiktokstudio/upload?from=creator_center';
+        chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' }, (tabs) => {
+            if (tabs.length === 0) {
+                chrome.tabs.create({ url: TIKTOK_URL, active: false });
+            }
+        });
+    }
+    if (message.action === 'videoError') {
+        chrome.storage.session.set({
+            jobStatus: { running: false, error: message.error }
+        });
+    }
+});
