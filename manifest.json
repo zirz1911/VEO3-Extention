@@ -30,7 +30,8 @@
     }
   ],
   "action": {
-    "default_title": "Open Gen Flow Flow"
+    "default_title": "Open Gen Flow Flow",
+    "default_popup": "sidepanel.html"
   },
   "icons": {
     "16": "icon.png",
