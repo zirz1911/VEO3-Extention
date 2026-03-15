@@ -9,7 +9,6 @@
     "scripting",
     "tabs",
     "storage",
-    "windows"
   ],
   "host_permissions": [
     "https://api.openai.com/*"
