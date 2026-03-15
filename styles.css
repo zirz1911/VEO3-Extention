@@ -31,6 +31,13 @@ body {
   font-size: 14px;
 }
 
+/* Popup mode — Chrome popup มี max 600x600 */
+body.popup-mode {
+  width: 400px;
+  max-height: 580px;
+  overflow-y: auto;
+}
+
 .container {
   padding: 16px;
   display: flex;

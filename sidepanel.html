@@ -297,6 +297,14 @@
       </div>
     </div>
   </div>
+  <script>
+    // ถ้าเปิดเป็น popup (ไม่ใช่ side panel) → ใส่ class popup-mode
+    chrome.runtime.getPlatformInfo(({ os }) => {
+      const isMobile = os === 'android' || os === 'ios';
+      const isPopup = !chrome.sidePanel || isMobile;
+      if (isPopup) document.body.classList.add('popup-mode');
+    });
+  </script>
   <script src="sidepanel.js"></script>
 </body>
 
