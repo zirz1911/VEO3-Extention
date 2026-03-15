@@ -1,11 +1,16 @@
 // ── Auto Split: เปิด TikTok Studio ตอน extension โหลด ──────────────────────
-async function ensureTikTokStudioOpen() {
+async function ensureTikTokStudioOpen({ focus = false } = {}) {
     const TIKTOK_URL = 'https://www.tiktok.com/tiktokstudio/upload?from=creator_center';
 
     // เช็คว่า TikTok Studio เปิดอยู่แล้วไหม (ทุก window)
     const existing = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
     if (existing.length > 0) {
-        console.log('✅ TikTok Studio already open — skipping');
+        console.log('✅ TikTok Studio already open');
+        if (focus) {
+            // Focus window + tab ที่มีอยู่แล้ว
+            await chrome.windows.update(existing[0].windowId, { focused: true });
+            await chrome.tabs.update(existing[0].id, { active: true });
+        }
         return;
     }
 
@@ -30,7 +35,7 @@ async function ensureTikTokStudioOpen() {
     await chrome.windows.create({
         url: TIKTOK_URL,
         left: halfWidth, top, width: totalWidth - halfWidth, height,
-        focused: false   // ไม่แย่ง focus จาก Flow
+        focused: focus   // focus ถ้ากดปุ่มเอง, ไม่ focus ถ้า auto-trigger
     });
 
     console.log('✅ TikTok Studio opened in split view');
@@ -38,6 +43,11 @@ async function ensureTikTokStudioOpen() {
 
 document.addEventListener('DOMContentLoaded', () => {
     ensureTikTokStudioOpen();
+
+    // ── TikTok Button ────────────────────────────────────────────────────────
+    document.getElementById('tiktokBtn').addEventListener('click', () => {
+        ensureTikTokStudioOpen({ focus: true });
+    });
     const imageUploadArea = document.getElementById('imageUploadArea');
     const productImageInput = document.getElementById('productImageInput');
     const imagePreview = document.getElementById('imagePreview');
@@ -418,6 +428,8 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
             if (progress >= 100) {
                 clearInterval(interval);
                 statusText.innerText = "เสร็จสิ้น!";
+                // Auto-open TikTok Studio เมื่อวิดีโอสร้างเสร็จ
+                ensureTikTokStudioOpen({ focus: false });
                 setTimeout(() => {
                     statusBar.classList.add('hidden');
                     progressFill.style.width = '0%';

@@ -337,6 +337,30 @@ textarea:focus {
   box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
 }
 
+.btn-tiktok {
+  background: #111;
+  color: #fff;
+  font-weight: 500;
+  border: 1px solid #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+  opacity: 0.85;
+  transition: opacity 0.2s, border-color 0.2s;
+}
+
+.btn-tiktok:hover {
+  opacity: 1;
+  border-color: #69C9D0;
+  color: #69C9D0;
+}
+
+.btn-tiktok svg {
+  flex-shrink: 0;
+}
+
 /* Status Bar */
 .status-bar {
   background: var(--input-bg);
