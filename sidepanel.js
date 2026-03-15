@@ -30,6 +30,40 @@ async function switchToFlow() {
     }
 }
 
+// ── Listen for videoReady from content script ────────────────────────────────
+chrome.runtime.onMessage.addListener((message) => {
+    const statusBar  = document.getElementById('statusBar');
+    const statusText = document.getElementById('statusText');
+    const progressFill = document.querySelector('.progress-fill');
+    const createBtn  = document.getElementById('createBtn');
+    const cancelBtn  = document.getElementById('cancelBtn');
+
+    if (message.action === 'videoReady') {
+        progressFill.classList.remove('pulse');
+        progressFill.style.transition = '';
+        progressFill.style.width = '100%';
+        statusText.innerText = "เสร็จสิ้น! กำลังเปิด TikTok...";
+
+        ensureTikTokStudioOpen({ focus: false });
+        switchToTikTok();
+
+        setTimeout(() => {
+            statusBar.classList.add('hidden');
+            progressFill.style.width = '0%';
+            statusText.innerText = "กำลังสร้างวิดีโอ.. รอสักครู่";
+            createBtn.disabled = false;
+            cancelBtn.disabled = false;
+        }, 2000);
+    }
+
+    if (message.action === 'videoError') {
+        progressFill.classList.remove('pulse');
+        statusText.innerText = `❌ Error: ${message.error}`;
+        createBtn.disabled = false;
+        cancelBtn.disabled = false;
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     ensureTikTokStudioOpen();
 
@@ -411,27 +445,11 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
             cancelBtn.disabled = false;
         }
 
-        // Visual progress simulation
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += 5;
-            progressFill.style.width = `${progress}%`;
-
-            if (progress >= 100) {
-                clearInterval(interval);
-                statusText.innerText = "เสร็จสิ้น!";
-                // สลับไปหน้า TikTok Studio เมื่อวิดีโอสร้างเสร็จ
-                ensureTikTokStudioOpen({ focus: false });
-                switchToTikTok();
-                setTimeout(() => {
-                    statusBar.classList.add('hidden');
-                    progressFill.style.width = '0%';
-                    statusText.innerText = "กำลังสร้างวิดีโอ.. รอสักครู่";
-                    createBtn.disabled = false;
-                    cancelBtn.disabled = false;
-                }, 2000);
-            }
-        }, 200);
+        // Progress bar — pulse ไปเรื่อยๆ จนกว่าจะได้รับ videoReady
+        progressFill.style.transition = 'none';
+        progressFill.style.width = '0%';
+        progressFill.classList.add('pulse');
+        statusText.innerText = "กำลังสร้างวิดีโอ.. รอสักครู่";
     });
 
     cancelBtn.addEventListener('click', () => {

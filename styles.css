@@ -337,6 +337,17 @@ textarea:focus {
   box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
 }
 
+/* Progress pulse animation */
+@keyframes progress-pulse {
+  0%   { width: 20%; opacity: 1; }
+  50%  { width: 80%; opacity: 0.7; }
+  100% { width: 20%; opacity: 1; }
+}
+
+.progress-fill.pulse {
+  animation: progress-pulse 2s ease-in-out infinite;
+}
+
 .btn-tiktok {
   background: #111;
   color: #fff;

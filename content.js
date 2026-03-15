@@ -36,10 +36,14 @@ async function handleGeneration(data) {
         }
 
         // Step 5: กด Generate (รอจนปุ่ม enabled)
-        // await clickGenerateButton(); // 🔒 ปิดไว้ชั่วคราว — ทดสอบ upload ก่อน
+        await clickGenerateButton();
+
+        // Step 6: รอวิดีโอสร้างเสร็จ แล้ว notify side panel
+        await waitForVideoReady();
 
     } catch (error) {
         console.error("Error during generation:", error);
+        chrome.runtime.sendMessage({ action: "videoError", error: error.message });
     }
 }
 
@@ -337,6 +341,52 @@ async function clickGenerateButton() {
         btn.focus();
         break;
     }
+}
+
+// ── Step 6: รอวิดีโอสร้างเสร็จ ────────────────────────────────────────────────
+async function waitForVideoReady() {
+    console.log("Step 6: Waiting for video generation to complete...");
+
+    const MAX_WAIT_MS = 5 * 60 * 1000; // 5 นาที
+    const start = Date.now();
+
+    // จำจำนวน <video> ก่อนเริ่ม generate
+    const videoBefore = document.querySelectorAll('video').length;
+
+    await new Promise((resolve) => {
+        const observer = new MutationObserver(() => {
+            // วิธี 1: มี <video> ใหม่โผล่ (วิดีโอพร้อมเล่น)
+            const videoNow = document.querySelectorAll('video').length;
+            if (videoNow > videoBefore) {
+                console.log(`✅ New video element detected (${videoBefore} → ${videoNow})`);
+                observer.disconnect();
+                resolve();
+                return;
+            }
+
+            // วิธี 2: มีปุ่ม download / save โผล่
+            const downloadBtn = document.querySelector('[aria-label*="download" i], [aria-label*="save" i], [title*="download" i]');
+            if (downloadBtn) {
+                console.log("✅ Download button detected");
+                observer.disconnect();
+                resolve();
+                return;
+            }
+
+            // Timeout
+            if (Date.now() - start > MAX_WAIT_MS) {
+                console.warn("⚠️ Timeout waiting for video");
+                observer.disconnect();
+                resolve();
+            }
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+    });
+
+    // Notify side panel ว่าวิดีโอเสร็จแล้ว
+    chrome.runtime.sendMessage({ action: "videoReady" });
+    console.log("✅ Notified side panel: videoReady");
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
