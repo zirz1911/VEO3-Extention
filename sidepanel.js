@@ -48,7 +48,7 @@ chrome.runtime.onMessage.addListener((message) => {
         progressFill.style.width = '100%';
         statusText.innerText = "เสร็จสิ้น! กำลังเปิด TikTok...";
 
-        chrome.storage.session.set({ jobStatus: { running: false, done: true, text: 'เสร็จสิ้น!' } });
+        chrome.storage.local.set({ jobStatus: { running: false, done: true, text: 'เสร็จสิ้น!' } });
         ensureTikTokStudioOpen({ focus: false });
         switchToTikTok();
 
@@ -58,7 +58,7 @@ chrome.runtime.onMessage.addListener((message) => {
             statusText.innerText = "กำลังสร้างวิดีโอ.. รอสักครู่";
             createBtn.disabled = false;
             cancelBtn.disabled = false;
-            chrome.storage.session.remove('jobStatus');
+            chrome.storage.local.remove('jobStatus');
         }, 2000);
     }
 
@@ -67,7 +67,7 @@ chrome.runtime.onMessage.addListener((message) => {
         statusText.innerText = `❌ Error: ${message.error}`;
         createBtn.disabled = false;
         cancelBtn.disabled = false;
-        chrome.storage.session.set({ jobStatus: { running: false, error: message.error } });
+        chrome.storage.local.set({ jobStatus: { running: false, error: message.error } });
     }
 });
 
@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveFormData() {
         const imageDataUrl = !imagePreview.classList.contains('hidden') && imagePreview.src
             ? imagePreview.src : null;
-        chrome.storage.session.set({ formData: {
+        chrome.storage.local.set({ formData: {
             productName: productNameInput.value,
             ratio: document.getElementById('ratioSelect').value,
             quantity: document.getElementById('quantitySelect').value,
@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Restore state when popup opens
-    chrome.storage.session.get(['jobStatus', 'formData'], (result) => {
+    chrome.storage.local.get(['jobStatus', 'formData'], (result) => {
         if (result.formData) restoreFormData(result.formData);
         const js = result.jobStatus;
         if (js?.running) {
@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusBar.classList.remove('hidden');
             setTimeout(() => {
                 statusBar.classList.add('hidden');
-                chrome.storage.session.remove('jobStatus');
+                chrome.storage.local.remove('jobStatus');
             }, 3000);
         } else if (js?.error) {
             statusText.innerText = `❌ ${js.error}`;
@@ -449,7 +449,7 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
         statusBar.classList.remove('hidden');
         createBtn.disabled = true;
         cancelBtn.disabled = true;
-        chrome.storage.session.set({ jobStatus: { running: true, step: 0, text: 'กำลังเริ่มต้น...' } });
+        chrome.storage.local.set({ jobStatus: { running: true, step: 0, text: 'กำลังเริ่มต้น...' } });
 
         // สลับไปหน้า Flow ให้ content script ทำงานได้
         await switchToFlow();

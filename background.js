@@ -39,12 +39,12 @@ async function applyUiMode() {
 // ── Persist job state so popup can restore after close/reopen ────────────────
 chrome.runtime.onMessage.addListener((message) => {
     if (message.action === 'progress') {
-        chrome.storage.session.set({
+        chrome.storage.local.set({
             jobStatus: { running: true, step: message.step, text: message.text }
         });
     }
     if (message.action === 'videoReady') {
-        chrome.storage.session.set({
+        chrome.storage.local.set({
             jobStatus: { running: false, done: true, text: 'เสร็จสิ้น!' }
         });
         // Open TikTok Studio in background if not already open
@@ -56,7 +56,7 @@ chrome.runtime.onMessage.addListener((message) => {
         });
     }
     if (message.action === 'videoError') {
-        chrome.storage.session.set({
+        chrome.storage.local.set({
             jobStatus: { running: false, error: message.error }
         });
     }
