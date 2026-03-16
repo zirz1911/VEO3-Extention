@@ -1,6 +1,15 @@
 // content.js
 console.log("PD Auto VEO3.1 Content Script Loaded");
 
+// บน Orion/mobile chrome.runtime.sendMessage อาจ return undefined (callback-based)
+// แทนที่จะเป็น Promise → ใช้ safeSendMessage ทุกครั้ง
+function safeSendMessage(msg) {
+    try {
+        const result = chrome.runtime.sendMessage(msg);
+        if (result && typeof result.catch === 'function') result.catch(() => {});
+    } catch (e) { /* popup/sidepanel ปิดอยู่ — ไม่ต้อง error */ }
+}
+
 let _jobCancelled = false;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -71,13 +80,13 @@ async function handleGeneration(data) {
 
         // Step 8: แจ้ง side panel ว่าเสร็จแล้ว (เปิด TikTok)
         removeFlowOverlay();
-        chrome.runtime.sendMessage({ action: "videoReady" });
+        safeSendMessage({ action: "videoReady" });
         console.log("✅ Notified side panel: videoReady");
 
     } catch (error) {
         console.error("Error during generation:", error);
         removeFlowOverlay();
-        chrome.runtime.sendMessage({ action: "videoError", error: error.message });
+        safeSendMessage({ action: "videoError", error: error.message });
     }
 }
 
@@ -518,8 +527,7 @@ async function downloadLatestVideo() {
 
 // ── Progress reporting ────────────────────────────────────────────────────────
 function sendProgress(step, text) {
-    chrome.runtime.sendMessage({ action: 'progress', running: true, step, text })
-        .catch(() => {}); // ignore error when popup is closed
+    safeSendMessage({ action: 'progress', running: true, step, text });
     updateFlowOverlay(text);
 }
 
