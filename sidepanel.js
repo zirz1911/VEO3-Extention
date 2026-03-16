@@ -124,11 +124,6 @@ function isPopupMode() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Side panel เท่านั้นที่ auto-open TikTok — popup ไม่ทำ (จะปิดตัวเอง)
-    if (!isPopupMode()) {
-        ensureTikTokStudioOpen();
-    }
-
     // ── TikTok Button ────────────────────────────────────────────────────────
     document.getElementById('tiktokBtn').addEventListener('click', () => {
         ensureTikTokStudioOpen({ focus: true });
