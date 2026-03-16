@@ -438,22 +438,17 @@ async function waitForVideoReady() {
 async function downloadLatestVideo() {
     console.log("Step 7: Downloading latest video...");
 
-    // หา div[data-tile-id] แรกที่มี class sc-c462af31-0 (video tile, ไม่ใช่ image)
-    // video tile = sc-c462af31-0 ddclZo / image tile = sc-5923b123-0 gUubWn
+    // ── 1. หา video tile แรก ────────────────────────────────────────────────
     let videoTile = null;
     for (let i = 0; i < 20; i++) {
         videoTile = document.querySelector('div[data-tile-id]:has(video)');
         if (videoTile) break;
         await new Promise(r => setTimeout(r, 500));
     }
-
-    if (!videoTile) {
-        console.warn("⚠️ No video tile found");
-        return;
-    }
+    if (!videoTile) { console.warn("⚠️ No video tile found"); return; }
     console.log("✅ Found video tile:", videoTile.dataset.tileId);
 
-    // เก็บ video URL ไว้ใน storage สำหรับ TikTok upload
+    // ── 2. เก็บ video URL ไว้ใน storage สำหรับ TikTok upload ─────────────────
     const videoEl = videoTile.querySelector('video');
     if (videoEl?.src) {
         const absoluteUrl = new URL(videoEl.src, location.origin).href;
@@ -461,56 +456,37 @@ async function downloadLatestVideo() {
         console.log("✅ Stored video URL:", absoluteUrl);
     }
 
-    // Scroll เข้า view ก่อน
+    // ── 3. Scroll + คลิก tile เพื่อเปิดวิดีโอ ──────────────────────────────
     videoTile.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 400));
 
-    // Hover บน sc-7a78fdd8-0 (hover wrapper ที่ทำให้ overlay โผล่)
-    const hoverEl = videoTile.querySelector('.sc-7a78fdd8-0') || videoTile;
-    const rect = hoverEl.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-
-    hoverEl.dispatchEvent(new PointerEvent('pointerenter', { bubbles: false, cancelable: true, view: window, clientX: cx, clientY: cy }));
-    hoverEl.dispatchEvent(new MouseEvent('mouseenter',     { bubbles: false, cancelable: true, view: window, clientX: cx, clientY: cy }));
-    hoverEl.dispatchEvent(new MouseEvent('mouseover',      { bubbles: true,  cancelable: true, view: window, clientX: cx, clientY: cy }));
-    hoverEl.dispatchEvent(new MouseEvent('mousemove',      { bubbles: true,  cancelable: true, view: window, clientX: cx, clientY: cy }));
-    console.log("✅ Hovered on video tile");
-    await new Promise(r => setTimeout(r, 600));
-
-    // Right-click บน inner span[data-state] ใน .sc-11801678-0
-    // (outer span แสดงแค่ "ลบ" — inner span มี download)
-    const innerSpan = videoTile.querySelector('.sc-11801678-0 > span[data-state]');
-    const contextTrigger = innerSpan || videoTile.querySelector(':scope > span[data-state]') || videoTile;
-    contextTrigger.dispatchEvent(new MouseEvent('contextmenu', {
-        bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy, button: 2, buttons: 2
-    }));
-    console.log("✅ Right-clicked:", contextTrigger.className, '| data-state:', contextTrigger.dataset.state);
+    const clickTarget = videoTile.querySelector('.sc-7a78fdd8-0') || videoTile;
+    clickTarget.click();
+    console.log("✅ Clicked video tile to open");
     await new Promise(r => setTimeout(r, 800));
 
-    // หา "ดาวน์โหลด" menu item (icon google-symbols text = "download")
-    let downloadItem = null;
+    // ── 4. รอปุ่ม Download โผล่ ──────────────────────────────────────────────
+    // <button aria-haspopup="menu"><i class="google-symbols">download</i>...</button>
+    let downloadBtn = null;
     for (let i = 0; i < 20; i++) {
-        downloadItem = Array.from(document.querySelectorAll('[role="menuitem"]'))
-            .find(el => {
-                const icon = el.querySelector('.google-symbols');
+        downloadBtn = Array.from(document.querySelectorAll('button[aria-haspopup="menu"]'))
+            .find(btn => {
+                const icon = btn.querySelector('.google-symbols');
                 return icon && icon.textContent.trim() === 'download';
             });
-        if (downloadItem) break;
-        await new Promise(r => setTimeout(r, 200));
+        if (downloadBtn) break;
+        await new Promise(r => setTimeout(r, 300));
     }
 
-    if (!downloadItem) {
-        console.warn("⚠️ Download menu item not found");
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    if (!downloadBtn) {
+        console.warn("⚠️ Download button not found");
         return;
     }
-
-    downloadItem.click();
-    console.log("✅ Clicked Download");
+    downloadBtn.click();
+    console.log("✅ Clicked Download button");
     await new Promise(r => setTimeout(r, 600));
 
-    // หา 720p button
+    // ── 5. หา 720p แล้วกด ───────────────────────────────────────────────────
     let btn720 = null;
     for (let i = 0; i < 20; i++) {
         btn720 = Array.from(document.querySelectorAll('[role="menuitem"]'))
