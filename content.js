@@ -438,10 +438,19 @@ async function waitForVideoReady() {
 async function downloadLatestVideo() {
     console.log("Step 7: Downloading latest video...");
 
-    // ── 1. หา video tile แรก ────────────────────────────────────────────────
+    // ── 1. หา video tile ล่าสุด จาก virtuoso data-index="0" ────────────────
+    // video tile = sc-c462af31-0  |  image tile = sc-5923b123-0
     let videoTile = null;
     for (let i = 0; i < 20; i++) {
-        videoTile = document.querySelector('div[data-tile-id]:has(video)');
+        // ลองหาจาก row แรกของ virtuoso list ก่อน
+        const firstRow = document.querySelector('[data-index="0"]');
+        if (firstRow) {
+            videoTile = firstRow.querySelector('.sc-c462af31-0');
+        }
+        // fallback: หาทั่วหน้า
+        if (!videoTile) {
+            videoTile = document.querySelector('.sc-c462af31-0[data-tile-id]');
+        }
         if (videoTile) break;
         await new Promise(r => setTimeout(r, 500));
     }
@@ -456,14 +465,15 @@ async function downloadLatestVideo() {
         console.log("✅ Stored video URL:", absoluteUrl);
     }
 
-    // ── 3. Scroll + คลิก tile เพื่อเปิดวิดีโอ ──────────────────────────────
+    // ── 3. Scroll + คลิก <a> เพื่อเปิดวิดีโอ ───────────────────────────────
     videoTile.scrollIntoView({ behavior: 'smooth', block: 'center' });
     await new Promise(r => setTimeout(r, 400));
 
-    const clickTarget = videoTile.querySelector('.sc-7a78fdd8-0') || videoTile;
-    clickTarget.click();
-    console.log("✅ Clicked video tile to open");
-    await new Promise(r => setTimeout(r, 800));
+    // คลิก <button> ข้างใน <a> (play button ของ video tile)
+    const openBtn = videoTile.querySelector('a button') || videoTile.querySelector('a') || videoTile;
+    openBtn.click();
+    console.log("✅ Clicked video tile to open:", openBtn.tagName);
+    await new Promise(r => setTimeout(r, 1000));
 
     // ── 4. รอปุ่ม Download โผล่ ──────────────────────────────────────────────
     // <button aria-haspopup="menu"><i class="google-symbols">download</i>...</button>
