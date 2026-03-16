@@ -477,15 +477,12 @@ async function downloadLatestVideo() {
 
     // ── 4. รอปุ่ม Download โผล่ ──────────────────────────────────────────────
     // <button aria-haspopup="menu"><i class="google-symbols">download</i>...</button>
-    // หาจาก icon name "download" (Material Icons — ไม่ขึ้นกับภาษา UI)
-    // icon อยู่ใน <i> tag เสมอ ไม่ว่า class จะเปลี่ยนหรือไม่
+    // หาด้วย XPath — ไม่ขึ้นกับภาษา UI (ใช้ icon name "download" ข้างใน <i>)
     let downloadBtn = null;
     for (let i = 0; i < 20; i++) {
-        downloadBtn = Array.from(document.querySelectorAll('button[aria-haspopup="menu"]'))
-            .find(btn => {
-                const icon = btn.querySelector('i');
-                return icon && icon.textContent.trim() === 'download';
-            });
+        downloadBtn = xpathFind(
+            `//button[@aria-haspopup='menu'][.//i[normalize-space(text())='download']]`
+        );
         if (downloadBtn) break;
         await new Promise(r => setTimeout(r, 300));
     }
@@ -494,8 +491,9 @@ async function downloadLatestVideo() {
         console.warn("⚠️ Download button not found");
         return;
     }
-    downloadBtn.click();
-    console.log("✅ Clicked Download button");
+    console.log("✅ Found Download button via XPath:", downloadBtn.id);
+    robustClick(downloadBtn);
+    console.log("✅ robustClick → Download button");
     await new Promise(r => setTimeout(r, 600));
 
     // ── 5. หา 720p แล้วกด ───────────────────────────────────────────────────
@@ -516,6 +514,74 @@ async function downloadLatestVideo() {
     btn720.click();
     console.log("✅ Clicked 720p — download started");
     await new Promise(r => setTimeout(r, 1000));
+}
+
+// ── XPath helper ─────────────────────────────────────────────────────────────
+function xpathFind(expr, context = document) {
+    return document.evaluate(expr, context, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+}
+
+// ── Robust React click helpers (port from tiktok_content.js) ─────────────────
+function _getCenter(el) {
+    const r = el.getBoundingClientRect();
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+}
+function _mouseInit(el) {
+    const { x, y } = _getCenter(el);
+    return { bubbles: true, cancelable: true, composed: true, view: window, detail: 1,
+             clientX: x, clientY: y, screenX: x, screenY: y, button: 0, buttons: 1 };
+}
+function _pointerInit(el) {
+    return { ..._mouseInit(el), pointerId: 1, width: 1, height: 1, pressure: 0.5, pointerType: 'mouse', isPrimary: true };
+}
+
+function dispatchClickSeq(el) {
+    el.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+    const p = _pointerInit(el), m = _mouseInit(el);
+    el.dispatchEvent(new PointerEvent('pointerdown', p));
+    el.dispatchEvent(new MouseEvent('mousedown', m));
+    el.dispatchEvent(new PointerEvent('pointerup', { ...p, pressure: 0, buttons: 0 }));
+    el.dispatchEvent(new MouseEvent('mouseup', { ...m, buttons: 0 }));
+    el.dispatchEvent(new MouseEvent('click', { ...m, buttons: 0 }));
+}
+
+function reactFiberClick(el) {
+    const key = Object.keys(el).find(k => k.startsWith('__reactFiber$') || k.startsWith('__reactProps$'));
+    if (!key) return false;
+    let node = el[key.startsWith('__reactFiber') ? key : null] || el;
+    let fiber = key.startsWith('__reactFiber') ? el[key] : null;
+    // try __reactProps$ walk up DOM
+    for (let n = el, i = 0; i < 8 && n; i++, n = n.parentElement) {
+        const pk = Object.keys(n).find(k => k.startsWith('__reactProps$'));
+        if (pk && typeof n[pk]?.onClick === 'function') {
+            n[pk].onClick({ type: 'click', target: el, currentTarget: n,
+                nativeEvent: new MouseEvent('click', _mouseInit(el)),
+                bubbles: true, cancelable: true, defaultPrevented: false,
+                preventDefault: () => {}, stopPropagation: () => {}, persist: () => {},
+                isDefaultPrevented: () => false, isPropagationStopped: () => false,
+                ..._getCenter(el) });
+            return true;
+        }
+    }
+    if (!fiber) return false;
+    for (let i = 0; i < 15 && fiber; i++) {
+        if (typeof fiber.memoizedProps?.onClick === 'function') {
+            fiber.memoizedProps.onClick({ type: 'click', target: el,
+                nativeEvent: new MouseEvent('click', _mouseInit(el)),
+                bubbles: true, cancelable: true, defaultPrevented: false,
+                preventDefault: () => {}, stopPropagation: () => {}, persist: () => {},
+                isDefaultPrevented: () => false, isPropagationStopped: () => false,
+                ..._getCenter(el) });
+            return true;
+        }
+        fiber = fiber.return;
+    }
+    return false;
+}
+
+function robustClick(el) {
+    dispatchClickSeq(el);
+    if (!reactFiberClick(el)) el.click();
 }
 
 // ── Progress reporting ────────────────────────────────────────────────────────
