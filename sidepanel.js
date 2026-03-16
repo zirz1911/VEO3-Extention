@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const caption = document.getElementById('scriptInput').value.trim();
+            const caption = document.getElementById('captionInput').value.trim();
             const productId = document.getElementById('productIdInput').value.trim();
             chrome.tabs.sendMessage(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId }, (res) => {
                 if (chrome.runtime.lastError) {
@@ -188,10 +188,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const soraUI = document.getElementById('soraUI');
 
     const validateForm = () => {
-        const hasImage = productImageInput.files.length > 0 ||
-            (!imagePreview.classList.contains('hidden') && !!imagePreview.src);
-        const hasName = productNameInput.value.trim().length > 0;
-        analyzeBtn.disabled = !(hasImage && hasName);
+        // analyzeBtn always enabled
+        analyzeBtn.disabled = false;
     };
 
     // ── Session persistence: save form + restore on popup reopen ─────────────
@@ -205,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
             veoModel: document.getElementById('veoModelSelect').value,
             camera: document.querySelector('input[name="camera"]:checked')?.value || 'static',
             script: document.getElementById('scriptInput').value,
+            caption: document.getElementById('captionInput').value,
             language: document.getElementById('languageSelect').value,
             productId: document.getElementById('productIdInput').value,
             imageDataUrl
@@ -221,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (r) r.checked = true;
         }
         if (d.script) document.getElementById('scriptInput').value = d.script;
+        if (d.caption) document.getElementById('captionInput').value = d.caption;
         if (d.language) document.getElementById('languageSelect').value = d.language;
         if (d.productId) document.getElementById('productIdInput').value = d.productId;
         if (d.imageDataUrl) {
