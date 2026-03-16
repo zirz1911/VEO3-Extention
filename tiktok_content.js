@@ -104,6 +104,19 @@ async function uploadVideoToTikTok(videoUrl, request_caption, productId) {
 
     await clickTUXButton('Add', 30);
     console.log("Product flow complete");
+    await new Promise(r => setTimeout(r, 1500));
+
+    // Step 11: กด Show more
+    await clickShowMore();
+    await new Promise(r => setTimeout(r, 800));
+
+    // Step 12: เปิด AI-generated content switch
+    await toggleAIContentSwitch();
+    await new Promise(r => setTimeout(r, 800));
+
+    // Step 13: กด Post
+    await clickPostButton();
+    console.log("✅ Post submitted!");
 }
 
 // ---------------------------------------------------------------------------
@@ -607,6 +620,63 @@ async function fillProductId(productId) {
         console.log("Radio not found (attempt " + attempt + "/5), retrying...");
     }
     console.warn("Radio button not found after 5 attempts");
+}
+
+// ---------------------------------------------------------------------------
+// clickShowMore — คลิก "Show more" ใน advanced settings
+// ---------------------------------------------------------------------------
+async function clickShowMore() {
+    let btn = null;
+    for (let i = 0; i < 15; i++) {
+        const container = document.querySelector('[data-e2e="advanced_settings_container"]');
+        if (container) {
+            btn = container.querySelector('.more-btn');
+            if (btn) break;
+        }
+        await new Promise(r => setTimeout(r, 300));
+    }
+    if (!btn) { console.warn("Show more button not found"); return; }
+    btn.click();
+    console.log("✅ Clicked Show more");
+}
+
+// ---------------------------------------------------------------------------
+// toggleAIContentSwitch — เปิด Switch AI-generated content
+// ---------------------------------------------------------------------------
+async function toggleAIContentSwitch() {
+    let switchEl = null;
+    for (let i = 0; i < 15; i++) {
+        const container = document.querySelector('[data-e2e="aigc_container"]');
+        if (container) {
+            switchEl = container.querySelector('.Switch__content');
+            if (switchEl) break;
+        }
+        await new Promise(r => setTimeout(r, 300));
+    }
+    if (!switchEl) { console.warn("AI content switch not found"); return; }
+
+    // ถ้ายังไม่ได้เปิด (unchecked) ให้คลิก
+    if (switchEl.getAttribute('aria-checked') !== 'true') {
+        humanClickTUX(switchEl);
+        console.log("✅ Toggled AI-generated content switch ON");
+    } else {
+        console.log("AI content switch already ON — skip");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// clickPostButton — กดปุ่ม Post
+// ---------------------------------------------------------------------------
+async function clickPostButton() {
+    let btn = null;
+    for (let i = 0; i < 20; i++) {
+        btn = document.querySelector('button[data-e2e="post_video_button"]');
+        if (btn && btn.getAttribute('aria-disabled') !== 'true') break;
+        await new Promise(r => setTimeout(r, 500));
+    }
+    if (!btn) { console.warn("Post button not found"); return; }
+    btn.click();
+    console.log("✅ Clicked Post button");
 }
 
 // ---------------------------------------------------------------------------
