@@ -37,15 +37,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function handleGeneration(data) {
     showFlowOverlay();
     try {
-        // 🧪 TEST MODE — เทสเฉพาะ Download
-        sendProgress(7, 'กำลังดาวน์โหลดวิดีโอ...');
-        await downloadLatestVideo();
-
-        removeFlowOverlay();
-        safeSendMessage({ action: "videoReady" });
-        console.log("✅ Notified side panel: videoReady");
-
-        /* ── ปิดชั่วคราว ──────────────────────────────────────────────────────
         // Step 1: กดเริ่ม / Start
         sendProgress(1, 'กำลังเริ่มต้น...');
         await clickStart();
@@ -86,7 +77,10 @@ async function handleGeneration(data) {
         // Step 7: ดาวน์โหลดวิดีโอ 720p
         sendProgress(7, 'กำลังดาวน์โหลดวิดีโอ...');
         await downloadLatestVideo();
-        ─────────────────────────────────────────────────────────────────────── */
+
+        removeFlowOverlay();
+        safeSendMessage({ action: "videoReady" });
+        console.log("✅ Notified side panel: videoReady");
 
     } catch (error) {
         console.error("Error during generation:", error);
