@@ -17,6 +17,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 async function handleGeneration(data) {
+    showFlowOverlay();
     try {
         // Step 1: กดเริ่ม / Start
         sendProgress(1, 'กำลังเริ่มต้น...');
@@ -60,11 +61,13 @@ async function handleGeneration(data) {
         await downloadLatestVideo();
 
         // Step 8: แจ้ง side panel ว่าเสร็จแล้ว (เปิด TikTok)
+        removeFlowOverlay();
         chrome.runtime.sendMessage({ action: "videoReady" });
         console.log("✅ Notified side panel: videoReady");
 
     } catch (error) {
         console.error("Error during generation:", error);
+        removeFlowOverlay();
         chrome.runtime.sendMessage({ action: "videoError", error: error.message });
     }
 }
@@ -508,6 +511,44 @@ async function downloadLatestVideo() {
 function sendProgress(step, text) {
     chrome.runtime.sendMessage({ action: 'progress', running: true, step, text })
         .catch(() => {}); // ignore error when popup is closed
+    updateFlowOverlay(text);
+}
+
+// ── Flow Page Overlay ─────────────────────────────────────────────────────────
+function showFlowOverlay() {
+    if (document.getElementById('loki-flow-overlay')) return;
+
+    // Inject keyframes once
+    if (!document.getElementById('loki-flow-style')) {
+        const style = document.createElement('style');
+        style.id = 'loki-flow-style';
+        style.textContent = '@keyframes lokiSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+        document.head.appendChild(style);
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'loki-flow-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;font-family:sans-serif;';
+
+    overlay.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:32px 24px;text-align:center;">
+            <div style="width:32px;height:32px;border:3px solid rgba(255,255,255,0.2);border-top:3px solid #F97316;border-radius:50%;animation:lokiSpin 0.8s linear infinite;flex-shrink:0;"></div>
+            <div id="loki-flow-step" style="font-size:14px;color:#F97316;font-weight:500;">กำลังเริ่มต้น...</div>
+            <div style="font-size:12px;color:#9CA3AF;">⚠️ ห้ามกดอะไร ระบบกำลังทำงาน</div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+}
+
+function updateFlowOverlay(text) {
+    const stepEl = document.getElementById('loki-flow-step');
+    if (stepEl) stepEl.innerText = text || 'กำลังทำงาน...';
+}
+
+function removeFlowOverlay() {
+    const overlay = document.getElementById('loki-flow-overlay');
+    if (overlay) overlay.remove();
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

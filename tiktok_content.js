@@ -1,6 +1,43 @@
 // tiktok_content.js
 console.log("TikTok Content Script Loaded");
 
+// ── TikTok Automation Banner ──────────────────────────────────────────────────
+function showTikTokBanner(text) {
+    if (document.getElementById('loki-tiktok-banner')) {
+        updateTikTokBanner(text);
+        return;
+    }
+
+    if (!document.getElementById('loki-tiktok-style')) {
+        const style = document.createElement('style');
+        style.id = 'loki-tiktok-style';
+        style.textContent = '@keyframes lokiSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+        document.head.appendChild(style);
+    }
+
+    const banner = document.createElement('div');
+    banner.id = 'loki-tiktok-banner';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#F97316;color:#fff;font-family:sans-serif;padding:10px 16px;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+
+    banner.innerHTML = `
+        <div style="width:18px;height:18px;border:2px solid rgba(255,255,255,0.4);border-top:2px solid #fff;border-radius:50%;animation:lokiSpin 0.8s linear infinite;flex-shrink:0;"></div>
+        <span id="loki-tiktok-step" style="font-size:13px;font-weight:600;">${text || 'กำลังเริ่มต้น...'}</span>
+        <span style="font-size:12px;opacity:0.85;">⚠️ ห้ามกดอะไร ระบบกำลังทำงาน</span>
+    `;
+
+    document.body.insertBefore(banner, document.body.firstChild);
+}
+
+function updateTikTokBanner(text) {
+    const stepEl = document.getElementById('loki-tiktok-step');
+    if (stepEl) stepEl.innerText = text || 'กำลังทำงาน...';
+}
+
+function removeTikTokBanner() {
+    const banner = document.getElementById('loki-tiktok-banner');
+    if (banner) banner.remove();
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'uploadVideo') {
         console.log("Upload request received, url:", request.videoUrl);
@@ -25,8 +62,11 @@ async function dismissTutorialIfPresent() {
 }
 
 async function uploadVideoToTikTok(videoUrl, request_caption, productId) {
+    showTikTokBanner('กำลังเริ่มต้น...');
+    try {
     await dismissTutorialIfPresent();
 
+    updateTikTokBanner('กำลังดาวน์โหลดวิดีโอ...');
     console.log("Fetching video via background...");
     const result = await chrome.runtime.sendMessage({
         action: 'fetchVideoAsBase64',
@@ -35,11 +75,13 @@ async function uploadVideoToTikTok(videoUrl, request_caption, productId) {
 
     if (result.error) throw new Error('Fetch failed: ' + result.error);
 
+    updateTikTokBanner('กำลังเตรียมไฟล์วิดีโอ...');
     const fetchRes = await fetch(result.base64);
     const blob = await fetchRes.blob();
     const file = new File([blob], 'video.mp4', { type: result.type || 'video/mp4' });
     console.log("File ready:", file.name, Math.round(file.size / 1024) + ' KB');
 
+    updateTikTokBanner('กำลังอัปโหลดวิดีโอไป TikTok...');
     let fileInput = document.querySelector('input[type="file"]');
 
     if (!fileInput) {
@@ -75,6 +117,7 @@ async function uploadVideoToTikTok(videoUrl, request_caption, productId) {
     console.log("File injected into TikTok upload");
 
     if (request_caption) {
+        updateTikTokBanner('กำลังใส่ Caption...');
         await new Promise(r => setTimeout(r, 2000));
         await setCaptionText(request_caption);
     }
@@ -89,32 +132,40 @@ async function uploadVideoToTikTok(videoUrl, request_caption, productId) {
         console.warn("Add (anchor) button not found -- skipping");
     }
 
+    updateTikTokBanner('กำลังดำเนินการ Next...');
     if (!await clickTUXButton('Next')) {
         console.warn("Next button not found -- skipping product flow");
+        removeTikTokBanner();
         return;
     }
     await new Promise(r => setTimeout(r, 1000));
 
     if (productId) {
+        updateTikTokBanner('กำลังค้นหาสินค้า...');
         await fillProductId(productId);
     }
 
+    updateTikTokBanner('กำลังยืนยัน Next...');
     await clickTUXButton('Next');
     await new Promise(r => setTimeout(r, 3000));
 
+    updateTikTokBanner('กำลัง Add สินค้า...');
     await clickTUXButton('Add', 30);
     console.log("Product flow complete");
     await new Promise(r => setTimeout(r, 1500));
 
     // Step 11: กด Show more
+    updateTikTokBanner('กำลังตั้งค่าเพิ่มเติม...');
     await clickShowMore();
     await new Promise(r => setTimeout(r, 800));
 
     // Step 12: เปิด AI-generated content switch
+    updateTikTokBanner('กำลังเปิด AI-generated content...');
     await toggleAIContentSwitch();
     await new Promise(r => setTimeout(r, 800));
 
     // Step 13: กด Post
+    updateTikTokBanner('กำลัง Post วิดีโอ...');
     await clickPostButton();
 
     // Step 14: ถ้ามี "Continue to post?" modal → กด Post now
@@ -132,6 +183,13 @@ async function uploadVideoToTikTok(videoUrl, request_caption, productId) {
     );
 
     console.log("✅ Post flow complete!");
+    removeTikTokBanner();
+
+    } catch (err) {
+        console.error("uploadVideoToTikTok error:", err);
+        removeTikTokBanner();
+        throw err;
+    }
 }
 
 // ---------------------------------------------------------------------------

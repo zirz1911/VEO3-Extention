@@ -40,6 +40,8 @@ chrome.runtime.onMessage.addListener((message) => {
 
     if (message.action === 'progress') {
         statusText.innerText = message.text || 'กำลังทำงาน...';
+        const overlayStepText = document.getElementById('overlayStepText');
+        if (overlayStepText) overlayStepText.innerText = message.text || 'กำลังทำงาน...';
     }
 
     if (message.action === 'videoReady') {
@@ -90,6 +92,8 @@ chrome.runtime.onMessage.addListener((message) => {
             createBtn.disabled = false;
             cancelBtn.disabled = false;
             chrome.storage.local.remove('jobStatus');
+            const automationOverlay = document.getElementById('automationOverlay');
+            if (automationOverlay) automationOverlay.classList.add('hidden');
         }, 8000);
     }
 
@@ -99,6 +103,8 @@ chrome.runtime.onMessage.addListener((message) => {
         createBtn.disabled = false;
         cancelBtn.disabled = false;
         chrome.storage.local.set({ jobStatus: { running: false, error: message.error } });
+        const automationOverlay = document.getElementById('automationOverlay');
+        if (automationOverlay) automationOverlay.classList.add('hidden');
     }
 });
 
@@ -552,6 +558,14 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
     });
 
     createBtn.addEventListener('click', async () => {
+        // Show automation overlay
+        const automationOverlay = document.getElementById('automationOverlay');
+        const overlayStepText = document.getElementById('overlayStepText');
+        if (automationOverlay) {
+            if (overlayStepText) overlayStepText.innerText = 'กำลังเริ่มต้น...';
+            automationOverlay.classList.remove('hidden');
+        }
+
         statusBar.classList.remove('hidden');
         createBtn.disabled = true;
         cancelBtn.disabled = true;
