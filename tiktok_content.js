@@ -336,18 +336,46 @@ function humanClickTUX(el) {
 }
 
 // ---------------------------------------------------------------------------
-// clickTUXButton — Find and click a TUXButton by label text
+// clickTUXButton — Find and click a TUXButton by label text (XPath + fallback)
 // ---------------------------------------------------------------------------
+function findButtonByXPath(label) {
+    // ลอง XPath หลายแบบตามลำดับ
+    const xpaths = [
+        `//button[contains(@class,'TUXButton--primary') and .//*[text()='${label}']]`,
+        `//button[.//div[text()='${label}']]`,
+        `//button[contains(@class,'TUXButton--primary') and contains(.,'${label}')]`,
+    ];
+    for (const xpath of xpaths) {
+        const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+        const el = result.singleNodeValue;
+        if (el && el.getAttribute('aria-disabled') !== 'true') {
+            console.log("Found button via XPath:", xpath);
+            return el;
+        }
+    }
+    // Fallback: querySelector
+    return Array.from(document.querySelectorAll('.TUXButton--primary'))
+        .find(b => b.querySelector('.TUXButton-label')?.textContent.trim() === label
+                && b.getAttribute('aria-disabled') !== 'true')
+        || null;
+}
+
 async function clickTUXButton(label, retries = 15) {
     for (let i = 0; i < retries; i++) {
-        const btn = Array.from(document.querySelectorAll('.TUXButton--primary'))
-            .find(b => b.querySelector('.TUXButton-label')?.textContent.trim() === label
-                    && b.getAttribute('aria-disabled') !== 'true');
+        const btn = findButtonByXPath(label);
         if (btn) {
-            humanClickTUX(btn);
-            console.log("Clicked TUXButton:", label);
-            // Give the async backup attempts time to fire if needed
+            console.log(`Clicking TUXButton "${label}" — rect:`, JSON.stringify(btn.getBoundingClientRect()));
+            // ลอง native click ก่อน (isTrusted ไม่ได้ block จาก content script)
+            btn.click();
             await new Promise(r => setTimeout(r, 150));
+            // ถ้า button ยังอยู่ → ลอง humanClickTUX
+            if (btn.isConnected) {
+                console.log(`TUXButton "${label}" still in DOM after .click() — trying humanClickTUX`);
+                humanClickTUX(btn);
+                await new Promise(r => setTimeout(r, 150));
+            } else {
+                console.log(`TUXButton "${label}" removed from DOM — .click() succeeded`);
+            }
             return true;
         }
         await new Promise(r => setTimeout(r, 300));
