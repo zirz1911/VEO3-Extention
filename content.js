@@ -444,13 +444,14 @@ async function downloadLatestVideo() {
     console.log("✅ Hovered on video tile");
     await new Promise(r => setTimeout(r, 600));
 
-    // Right-click บน span[data-state] ที่เป็น direct child ของ div[data-tile-id]
-    // นี่คือ Radix ContextMenu.Trigger จริงๆ
-    const contextTrigger = videoTile.querySelector(':scope > span[data-state]') || videoTile;
+    // Right-click บน inner span[data-state] ใน .sc-11801678-0
+    // (outer span แสดงแค่ "ลบ" — inner span มี download)
+    const innerSpan = videoTile.querySelector('.sc-11801678-0 > span[data-state]');
+    const contextTrigger = innerSpan || videoTile.querySelector(':scope > span[data-state]') || videoTile;
     contextTrigger.dispatchEvent(new MouseEvent('contextmenu', {
         bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy, button: 2, buttons: 2
     }));
-    console.log("✅ Right-clicked on span[data-state]:", contextTrigger.tagName, contextTrigger.dataset.state);
+    console.log("✅ Right-clicked:", contextTrigger.className, '| data-state:', contextTrigger.dataset.state);
     await new Promise(r => setTimeout(r, 800));
 
     // หา "ดาวน์โหลด" menu item (icon google-symbols text = "download")
