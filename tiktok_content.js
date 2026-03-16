@@ -191,14 +191,17 @@ function dispatchFullClickSequence(el) {
  * memoizedProps contains the onClick if one was passed as a prop.
  */
 function tryReactFiberClick(el) {
-    // Find the fiber key on this element
     const fiberKey = Object.keys(el).find(k => k.startsWith('__reactFiber$'));
-    if (!fiberKey) return false;
+    if (!fiberKey) {
+        console.log("[humanClickTUX] No __reactFiber$ key found on element");
+        return false;
+    }
 
     let fiber = el[fiberKey];
     // Walk up the fiber tree (up to 15 levels) looking for an onClick in memoizedProps
     for (let i = 0; i < 15 && fiber; i++) {
         const props = fiber.memoizedProps;
+        console.log(`[humanClickTUX] fiber[${i}] type:`, typeof fiber.type === 'string' ? fiber.type : fiber.type?.name, '| hasOnClick:', !!(props?.onClick));
         if (props && typeof props.onClick === 'function') {
             console.log("[humanClickTUX] Found onClick on fiber at depth", i, "- tag:", fiber.type);
             // Build a synthetic-ish event that satisfies most React handler expectations
@@ -532,9 +535,16 @@ async function fillProductId(productId) {
                    || document.querySelector('input[type="radio"]');
 
         if (radio) {
+            // คลิกที่ parent div .TUXRadioStandalone (React handler อยู่ที่นี่ ไม่ใช่ input)
+            const radioWrapper = radio.closest('.TUXRadioStandalone') || radio;
+            console.log("Clicking radio wrapper:", radioWrapper.className);
+            humanClickTUX(radioWrapper);
+            await new Promise(r => setTimeout(r, 200));
+            // เรียก input events ด้วยเพื่อให้ครบ
             simulateReactRadioClick(radio);
             console.log("Clicked radio button (attempt " + attempt + "):",
-                        radio.name?.substring(0, 40) || '(no name)');
+                        radio.name?.substring(0, 40) || '(no name)',
+                        "| wrapper checked:", radio.checked);
             await new Promise(r => setTimeout(r, 1500));
             return;
         }
