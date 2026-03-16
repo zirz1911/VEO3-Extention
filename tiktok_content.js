@@ -4,7 +4,7 @@ console.log("TikTok Content Script Loaded");
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'uploadVideo') {
         console.log("📤 Upload request received, url:", request.videoUrl);
-        uploadVideoToTikTok(request.videoUrl)
+        uploadVideoToTikTok(request.videoUrl, request.caption)
             .then(() => sendResponse({ status: 'done' }))
             .catch(err => {
                 console.error("❌ Upload error:", err);
@@ -24,7 +24,7 @@ async function dismissTutorialIfPresent() {
     }
 }
 
-async function uploadVideoToTikTok(videoUrl) {
+async function uploadVideoToTikTok(videoUrl, request_caption) {
     // Step 0: ปิด tutorial popup ถ้ามี
     await dismissTutorialIfPresent();
 
@@ -79,4 +79,36 @@ async function uploadVideoToTikTok(videoUrl) {
     fileInput.dispatchEvent(new Event('change', { bubbles: true }));
     fileInput.dispatchEvent(new Event('input', { bubbles: true }));
     console.log("✅ File injected into TikTok upload");
+
+    // Step 5: ใส่ caption ถ้ามี
+    if (request_caption) {
+        await new Promise(r => setTimeout(r, 2000)); // รอ editor โหลด
+        await setCaptionText(request_caption);
+    }
+}
+
+async function setCaptionText(text) {
+    console.log("📝 Setting caption...");
+
+    let editor = null;
+    for (let i = 0; i < 20; i++) {
+        editor = document.querySelector('.public-DraftEditor-content[contenteditable="true"]');
+        if (editor) break;
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    if (!editor) {
+        console.warn("⚠️ Caption editor not found");
+        return;
+    }
+
+    editor.focus();
+    await new Promise(r => setTimeout(r, 200));
+
+    // Select all แล้ว replace ด้วย text ใหม่
+    document.execCommand('selectAll', false, null);
+    await new Promise(r => setTimeout(r, 100));
+    document.execCommand('insertText', false, text);
+
+    console.log("✅ Caption set:", text.substring(0, 50) + (text.length > 50 ? '...' : ''));
 }

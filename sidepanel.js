@@ -113,7 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            chrome.tabs.sendMessage(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl }, (res) => {
+            const caption = document.getElementById('scriptInput').value.trim();
+            chrome.tabs.sendMessage(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption }, (res) => {
                 if (chrome.runtime.lastError) {
                     alert('Error: ' + chrome.runtime.lastError.message);
                 }
