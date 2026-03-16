@@ -50,11 +50,38 @@ chrome.runtime.onMessage.addListener((message) => {
 
         chrome.storage.local.set({ jobStatus: { running: false, done: true, text: 'เสร็จสิ้น!' } });
 
-        // TODO: เปิดใช้งานหลังทดสอบ download เสร็จ
-        // setTimeout(async () => {
-        //     await ensureTikTokStudioOpen({ focus: false });
-        //     await switchToTikTok();
-        // }, 3000);
+        // สลับไป TikTok แล้ว trigger upload อัตโนมัติ
+        statusText.innerText = "ดาวน์โหลดเสร็จ! กำลังสลับไป TikTok...";
+        setTimeout(async () => {
+            await ensureTikTokStudioOpen({ focus: false });
+            await switchToTikTok();
+
+            // รอให้ TikTok tab โหลด แล้ว trigger upload
+            await new Promise(r => setTimeout(r, 3000));
+
+            const { lastVideoUrl, formData } = await chrome.storage.local.get(['lastVideoUrl', 'formData']);
+            const caption = document.getElementById('captionInput').value.trim() || formData?.caption || '';
+            const productId = document.getElementById('productIdInput').value.trim() || formData?.productId || '';
+
+            if (!lastVideoUrl) {
+                console.warn("No lastVideoUrl — skipping auto upload");
+                return;
+            }
+
+            const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
+            if (tiktokTabs.length === 0) {
+                console.warn("TikTok tab not found");
+                return;
+            }
+
+            statusText.innerText = "กำลังอัปโหลดไป TikTok...";
+            chrome.tabs.sendMessage(tiktokTabs[0].id, {
+                action: 'uploadVideo',
+                videoUrl: lastVideoUrl,
+                caption,
+                productId
+            });
+        }, 3000);
 
         setTimeout(() => {
             statusBar.classList.add('hidden');
@@ -63,7 +90,7 @@ chrome.runtime.onMessage.addListener((message) => {
             createBtn.disabled = false;
             cancelBtn.disabled = false;
             chrome.storage.local.remove('jobStatus');
-        }, 3000);
+        }, 8000);
     }
 
     if (message.action === 'videoError') {

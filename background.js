@@ -62,13 +62,12 @@ chrome.runtime.onMessage.addListener((message) => {
         chrome.storage.local.set({
             jobStatus: { running: false, done: true, text: 'เสร็จสิ้น!' }
         });
-        // TODO: เปิดใช้งานหลังทดสอบ download เสร็จ
-        // const TIKTOK_URL = 'https://www.tiktok.com/tiktokstudio/upload?from=creator_center';
-        // chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' }, (tabs) => {
-        //     if (tabs.length === 0) {
-        //         chrome.tabs.create({ url: TIKTOK_URL, active: false });
-        //     }
-        // });
+        const TIKTOK_URL = 'https://www.tiktok.com/tiktokstudio/upload?from=creator_center';
+        chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' }, (tabs) => {
+            if (tabs.length === 0) {
+                chrome.tabs.create({ url: TIKTOK_URL, active: false });
+            }
+        });
     }
     if (message.action === 'videoError') {
         chrome.storage.local.set({
