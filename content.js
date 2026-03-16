@@ -428,9 +428,24 @@ async function downloadLatestVideo() {
         return;
     }
 
+    // Hover target — div wrapper ชั้นใน (sc-7a78fdd8-0) ที่ trigger overlay เมื่อ hover
+    const hoverTarget = firstVideoTile.querySelector('.sc-7a78fdd8-0') || firstVideoTile;
+    const rect = hoverTarget.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const mouseInit = { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy, button: 0, buttons: 1 };
+
+    // Hover: pointerenter → mouseenter → mouseover → mousemove
+    hoverTarget.dispatchEvent(new PointerEvent('pointerenter', { ...mouseInit, bubbles: false }));
+    hoverTarget.dispatchEvent(new MouseEvent('mouseenter',  { ...mouseInit, bubbles: false }));
+    hoverTarget.dispatchEvent(new MouseEvent('mouseover',   mouseInit));
+    hoverTarget.dispatchEvent(new MouseEvent('mousemove',   mouseInit));
+    console.log("✅ Hovered on first video tile");
+    await new Promise(r => setTimeout(r, 600));
+
     // Right-click เพื่อเปิด context menu
-    firstVideoTile.dispatchEvent(new MouseEvent('contextmenu', {
-        bubbles: true, cancelable: true, view: window, button: 2, buttons: 2
+    hoverTarget.dispatchEvent(new MouseEvent('contextmenu', {
+        bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy, button: 2, buttons: 2
     }));
     console.log("✅ Right-clicked on first video tile");
     await new Promise(r => setTimeout(r, 800));
