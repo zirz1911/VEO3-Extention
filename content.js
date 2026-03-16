@@ -427,6 +427,14 @@ async function downloadLatestVideo() {
     }
     console.log("✅ Found video tile:", videoTile.dataset.tileId);
 
+    // เก็บ video URL ไว้ใน storage สำหรับ TikTok upload
+    const videoEl = videoTile.querySelector('video');
+    if (videoEl?.src) {
+        const absoluteUrl = new URL(videoEl.src, location.origin).href;
+        chrome.storage.local.set({ lastVideoUrl: absoluteUrl });
+        console.log("✅ Stored video URL:", absoluteUrl);
+    }
+
     // Scroll เข้า view ก่อน
     videoTile.scrollIntoView({ behavior: 'smooth', block: 'center' });
     await new Promise(r => setTimeout(r, 300));

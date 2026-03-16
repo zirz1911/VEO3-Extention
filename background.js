@@ -36,6 +36,21 @@ async function applyUiMode() {
     }
 }
 
+// ── Video fetch relay (cross-origin proxy for TikTok upload) ─────────────────
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'fetchVideoAsBase64') {
+        fetch(message.url)
+            .then(r => r.blob())
+            .then(blob => {
+                const reader = new FileReader();
+                reader.onload = () => sendResponse({ base64: reader.result, type: blob.type });
+                reader.readAsDataURL(blob);
+            })
+            .catch(err => sendResponse({ error: err.message }));
+        return true; // keep channel open for async
+    }
+});
+
 // ── Persist job state so popup can restore after close/reopen ────────────────
 chrome.runtime.onMessage.addListener((message) => {
     if (message.action === 'progress') {

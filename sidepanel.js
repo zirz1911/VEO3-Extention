@@ -90,6 +90,47 @@ document.addEventListener('DOMContentLoaded', () => {
         ensureTikTokStudioOpen({ focus: true });
     });
 
+    // ── Test Upload Button ───────────────────────────────────────────────────
+    document.getElementById('testUploadBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('testUploadBtn');
+        btn.innerText = '⏳ Uploading...';
+        btn.disabled = true;
+
+        try {
+            const { lastVideoUrl } = await chrome.storage.local.get('lastVideoUrl');
+            if (!lastVideoUrl) {
+                alert('ยังไม่มี video URL — กด Test Download ก่อน');
+                btn.innerText = '📤 Test Upload';
+                btn.disabled = false;
+                return;
+            }
+
+            const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
+            if (tiktokTabs.length === 0) {
+                alert('ไม่พบหน้า TikTok Studio — กรุณาเปิดหน้านั้นก่อน');
+                btn.innerText = '📤 Test Upload';
+                btn.disabled = false;
+                return;
+            }
+
+            chrome.tabs.sendMessage(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl }, (res) => {
+                if (chrome.runtime.lastError) {
+                    alert('Error: ' + chrome.runtime.lastError.message);
+                }
+            });
+
+            setTimeout(() => {
+                btn.innerText = '📤 Test Upload';
+                btn.disabled = false;
+            }, 15000);
+
+        } catch (err) {
+            alert('Error: ' + err.message);
+            btn.innerText = '📤 Test Upload';
+            btn.disabled = false;
+        }
+    });
+
     // ── Test Download Button ─────────────────────────────────────────────────
     document.getElementById('testDownloadBtn').addEventListener('click', async () => {
         const btn = document.getElementById('testDownloadBtn');
