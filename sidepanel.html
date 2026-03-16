@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>PD Auto VEO3.1</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -337,12 +337,21 @@
     </div>
   </div>
   <script>
-    // ถ้าเปิดเป็น popup (ไม่ใช่ side panel) → ใส่ class popup-mode
-    chrome.runtime.getPlatformInfo(({ os }) => {
-      const isMobile = os === 'android' || os === 'ios';
-      const isPopup = !chrome.sidePanel || isMobile;
-      if (isPopup) document.body.classList.add('popup-mode');
-    });
+    // ถ้าเปิดเป็น popup (ไม่ใช่ side panel) หรือบน mobile → ใส่ class popup-mode
+    // รองรับ Orion และ browser ที่อาจไม่มี getPlatformInfo
+    try {
+      if (!chrome.sidePanel) {
+        // ไม่มี sidePanel API (Orion, Firefox Android, ฯลฯ) → popup mode
+        document.body.classList.add('popup-mode');
+      } else {
+        chrome.runtime.getPlatformInfo(({ os }) => {
+          const isMobile = os === 'android' || os === 'ios';
+          if (isMobile) document.body.classList.add('popup-mode');
+        });
+      }
+    } catch (e) {
+      document.body.classList.add('popup-mode');
+    }
   </script>
   <script src="sidepanel.js"></script>
 </body>

@@ -31,10 +31,11 @@ body {
   font-size: 14px;
 }
 
-/* Popup mode — Chrome popup มี max 600x600 */
+/* Popup mode — desktop popup + mobile fallback */
 body.popup-mode {
-  width: 400px;
-  max-height: 580px;
+  width: 100%;
+  max-width: 480px;   /* desktop popup สวยอยู่ที่ 480px */
+  max-height: none;   /* ไม่จำกัดความสูง ให้ scroll แทน */
   overflow-y: auto;
 }
 
@@ -533,6 +534,132 @@ textarea:focus {
   display: flex;
   justify-content: flex-end;
   background: rgba(255, 255, 255, 0.02);
+}
+
+/* ── Safe area สำหรับ iPhone notch / home bar ──────────────────────────── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  body.popup-mode .container {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    padding-left:   calc(16px + env(safe-area-inset-left));
+    padding-right:  calc(16px + env(safe-area-inset-right));
+  }
+}
+
+/* ── Touch: ลบ 300ms delay ───────────────────────────────────────────────── */
+button,
+.btn,
+.dropdown-item,
+.radio-option,
+.image-upload-area,
+.settings-btn,
+.menu-btn {
+  touch-action: manipulation;
+}
+
+/* ── Mobile / Touch Responsive ───────────────────────────────────────────── */
+/* ครอบคลุม: มือถือ (≤ 480px) และ touch device ทุกขนาด */
+@media (max-width: 480px), (pointer: coarse) {
+  body {
+    font-size: 15px;
+  }
+
+  .container {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .logo h1 {
+    font-size: 17px;
+  }
+
+  /* ── Form ── */
+  .form-grid {
+    grid-template-columns: 1fr; /* เปลี่ยนเป็น single column */
+  }
+
+  .form-group label,
+  .section-label {
+    font-size: 13px;
+  }
+
+  input[type="text"],
+  select {
+    min-height: 44px; /* touch target ขั้นต่ำ */
+    font-size: 15px;
+    padding: 10px 12px;
+  }
+
+  textarea {
+    font-size: 15px;
+    padding: 10px 12px;
+  }
+
+  .image-upload-area {
+    height: 130px;
+  }
+
+  /* ── Radio ── */
+  .radio-label {
+    padding: 10px 14px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    min-height: 44px;
+    font-size: 15px;
+    padding: 12px 16px;
+  }
+
+  /* ── Dropdown ── */
+  .dropdown-item {
+    padding: 12px 16px;
+    font-size: 15px;
+    min-height: 44px;
+  }
+
+  /* ── Status bar ── */
+  #statusText {
+    font-size: 13px;
+  }
+
+  .status-cancel-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* ── Overlay ── */
+  .overlay-spinner {
+    width: 40px;
+    height: 40px;
+  }
+
+  .overlay-title {
+    font-size: 18px;
+  }
+
+  .overlay-step,
+  .overlay-warning {
+    font-size: 14px;
+  }
+
+  .overlay-cancel-btn {
+    width: 40px;
+    height: 40px;
+    top: 16px;
+    right: 16px;
+  }
+
+  /* ── Modal ── */
+  .modal-content {
+    width: 95%;
+    margin: 0 8px;
+  }
+
+  .modal-header h2 {
+    font-size: 15px;
+  }
 }
 
 /* SORA styles removed */
