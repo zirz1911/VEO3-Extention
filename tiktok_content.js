@@ -136,21 +136,30 @@ async function clickTUXButton(label, retries = 15) {
 }
 
 function humanClickTUX(el) {
-    const rect = el.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const init = { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy, button: 0, buttons: 1 };
-    el.dispatchEvent(new PointerEvent('pointerover',  { ...init }));
-    el.dispatchEvent(new PointerEvent('pointerenter', { ...init, bubbles: false }));
-    el.dispatchEvent(new MouseEvent('mouseover',      init));
-    el.dispatchEvent(new PointerEvent('pointermove',  init));
-    el.dispatchEvent(new MouseEvent('mousemove',      init));
-    el.dispatchEvent(new PointerEvent('pointerdown',  init));
-    el.dispatchEvent(new MouseEvent('mousedown',      init));
-    el.dispatchEvent(new PointerEvent('pointerup',    init));
-    el.dispatchEvent(new MouseEvent('mouseup',        init));
-    el.dispatchEvent(new MouseEvent('click',          init));
-    el.focus();
+    // วิธีที่ 1: เรียก React onClick handler โดยตรงผ่าน __reactProps
+    const propsKey = Object.keys(el).find(k => k.startsWith('__reactProps'));
+    if (propsKey && el[propsKey]?.onClick) {
+        el[propsKey].onClick({ type: 'click', target: el, currentTarget: el, bubbles: true, preventDefault: () => {}, stopPropagation: () => {} });
+        console.log("✅ Called React onClick directly");
+        return;
+    }
+
+    // วิธีที่ 2: ลอง traverse ขึ้นไปหา parent ที่มี onClick
+    let node = el;
+    for (let i = 0; i < 5; i++) {
+        const key = Object.keys(node).find(k => k.startsWith('__reactProps'));
+        if (key && node[key]?.onClick) {
+            node[key].onClick({ type: 'click', target: el, currentTarget: node, bubbles: true, preventDefault: () => {}, stopPropagation: () => {} });
+            console.log("✅ Called React onClick on parent level", i);
+            return;
+        }
+        node = node.parentElement;
+        if (!node) break;
+    }
+
+    // Fallback: native click
+    el.click();
+    console.log("⚠️ Fallback: native click");
 }
 
 // ── Helper: กรอก Product ID + Enter + รอ + คลิก Radio ────────────────────────
