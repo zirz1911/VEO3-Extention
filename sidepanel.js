@@ -9,9 +9,15 @@ async function ensureTikTokStudioOpen({ focus = false } = {}) {
         return;
     }
 
-    // เปิดเป็น tab ใหม่ใน window เดิม
-    await chrome.tabs.create({ url: TIKTOK_URL, active: focus });
-    console.log('✅ TikTok Studio opened as new tab');
+    // ไม่เจอ tab TikTok → navigate แท็บปัจจุบันไปที่ URL อัปโหลด
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab) {
+        await chrome.tabs.update(activeTab.id, { url: TIKTOK_URL, active: true });
+        console.log('✅ Navigated current tab to TikTok Studio upload');
+    } else {
+        await chrome.tabs.create({ url: TIKTOK_URL, active: focus });
+        console.log('✅ TikTok Studio opened as new tab (fallback)');
+    }
 }
 
 async function switchToTikTok() {
@@ -70,9 +76,14 @@ chrome.runtime.onMessage.addListener((message) => {
                 return;
             }
 
-            const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
+            let tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
             if (tiktokTabs.length === 0) {
-                console.warn("TikTok tab not found");
+                // ยังไม่เจอ → รอให้ tab โหลดเสร็จแล้วค้นอีกครั้ง
+                await new Promise(r => setTimeout(r, 2000));
+                tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
+            }
+            if (tiktokTabs.length === 0) {
+                console.warn("TikTok tab not found after retry — skipping upload");
                 return;
             }
 
