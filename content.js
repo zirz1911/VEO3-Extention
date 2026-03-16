@@ -44,9 +44,17 @@ async function handleGeneration(data) {
         sendProgress(5, 'กำลัง Generate วิดีโอ...');
         await clickGenerateButton();
 
-        // Step 6: รอวิดีโอสร้างเสร็จ แล้ว notify side panel
+        // Step 6: รอวิดีโอสร้างเสร็จ
         sendProgress(6, 'รอวิดีโอสร้างเสร็จ...');
         await waitForVideoReady();
+
+        // Step 7: ดาวน์โหลดวิดีโอ 720p
+        sendProgress(7, 'กำลังดาวน์โหลดวิดีโอ...');
+        await downloadLatestVideo();
+
+        // Step 8: แจ้ง side panel ว่าเสร็จแล้ว (เปิด TikTok)
+        chrome.runtime.sendMessage({ action: "videoReady" });
+        console.log("✅ Notified side panel: videoReady");
 
     } catch (error) {
         console.error("Error during generation:", error);
@@ -391,9 +399,75 @@ async function waitForVideoReady() {
         observer.observe(document.body, { childList: true, subtree: true });
     });
 
-    // Notify side panel ว่าวิดีโอเสร็จแล้ว
-    chrome.runtime.sendMessage({ action: "videoReady" });
-    console.log("✅ Notified side panel: videoReady");
+}
+
+// ── Step 7: ดาวน์โหลดวิดีโอล่าสุด (right-click → Download → 720p) ────────────
+async function downloadLatestVideo() {
+    console.log("Step 7: Downloading latest video...");
+
+    // หา video tile แรก (data-index="0") — ต้องเป็น video ไม่ใช่ image
+    let firstVideoTile = null;
+    for (let i = 0; i < 20; i++) {
+        const tile = document.querySelector('[data-index="0"]');
+        if (tile && tile.querySelector('video')) {
+            firstVideoTile = tile;
+            break;
+        }
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    if (!firstVideoTile) {
+        console.warn("⚠️ No video tile found at index 0");
+        return;
+    }
+
+    // Right-click เพื่อเปิด context menu
+    firstVideoTile.dispatchEvent(new MouseEvent('contextmenu', {
+        bubbles: true, cancelable: true, view: window, button: 2, buttons: 2
+    }));
+    console.log("✅ Right-clicked on first video tile");
+    await new Promise(r => setTimeout(r, 800));
+
+    // หา "ดาวน์โหลด" menu item (icon google-symbols text = "download")
+    let downloadItem = null;
+    for (let i = 0; i < 20; i++) {
+        downloadItem = Array.from(document.querySelectorAll('[role="menuitem"]'))
+            .find(el => {
+                const icon = el.querySelector('.google-symbols');
+                return icon && icon.textContent.trim() === 'download';
+            });
+        if (downloadItem) break;
+        await new Promise(r => setTimeout(r, 200));
+    }
+
+    if (!downloadItem) {
+        console.warn("⚠️ Download menu item not found");
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        return;
+    }
+
+    downloadItem.click();
+    console.log("✅ Clicked Download");
+    await new Promise(r => setTimeout(r, 600));
+
+    // หา 720p button
+    let btn720 = null;
+    for (let i = 0; i < 20; i++) {
+        btn720 = Array.from(document.querySelectorAll('[role="menuitem"]'))
+            .find(el => el.textContent.includes('720p'));
+        if (btn720) break;
+        await new Promise(r => setTimeout(r, 200));
+    }
+
+    if (!btn720) {
+        console.warn("⚠️ 720p button not found");
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        return;
+    }
+
+    btn720.click();
+    console.log("✅ Clicked 720p — download started");
+    await new Promise(r => setTimeout(r, 1000));
 }
 
 // ── Progress reporting ────────────────────────────────────────────────────────
