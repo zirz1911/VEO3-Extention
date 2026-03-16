@@ -265,6 +265,26 @@ document.addEventListener('DOMContentLoaded', () => {
         validateForm();
     }
 
+    // ── Shared cancel logic ──────────────────────────────────────────────────
+    async function cancelAutomation() {
+        try {
+            const flowTabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
+            if (flowTabs.length > 0) chrome.tabs.sendMessage(flowTabs[0].id, { action: 'cancelJob' });
+        } catch (e) { /* ignore */ }
+        const automationOverlay = document.getElementById('automationOverlay');
+        if (automationOverlay) automationOverlay.classList.add('hidden');
+        statusBar.classList.add('hidden');
+        progressFill.classList.remove('pulse');
+        progressFill.style.width = '0%';
+        statusText.innerText = 'กำลังสร้างวิดีโอ.. รอสักครู่';
+        createBtn.disabled = false;
+        cancelBtn.disabled = false;
+        chrome.storage.local.remove('jobStatus');
+        console.log('🛑 Automation cancelled by user');
+    }
+
+    document.getElementById('statusCancelBtn').addEventListener('click', cancelAutomation);
+
     // Restore state when popup opens
     chrome.storage.local.get(['jobStatus', 'formData'], (result) => {
         if (result.formData) restoreFormData(result.formData);
@@ -275,6 +295,13 @@ document.addEventListener('DOMContentLoaded', () => {
             statusText.innerText = js.text || 'กำลังทำงาน...';
             createBtn.disabled = true;
             cancelBtn.disabled = true;
+            // โชว์ overlay กลับมาด้วยเมื่อเปิด sidepanel ใหม่ระหว่าง job รัน
+            const automationOverlay = document.getElementById('automationOverlay');
+            const overlayStepText = document.getElementById('overlayStepText');
+            if (automationOverlay) {
+                if (overlayStepText) overlayStepText.innerText = js.text || 'กำลังทำงาน...';
+                automationOverlay.classList.remove('hidden');
+            }
         } else if (js?.done) {
             statusText.innerText = 'เสร็จสิ้น! ✅';
             statusBar.classList.remove('hidden');
@@ -648,27 +675,7 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
     });
 
     // ── Overlay Cancel Button ────────────────────────────────────────────────
-    document.getElementById('overlayCancelBtn').addEventListener('click', async () => {
-        // ส่ง cancelJob ไปยัง Flow tab เพื่อหยุด automation
-        try {
-            const flowTabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
-            if (flowTabs.length > 0) {
-                chrome.tabs.sendMessage(flowTabs[0].id, { action: 'cancelJob' });
-            }
-        } catch (e) { /* ignore */ }
-
-        // Reset UI
-        const automationOverlay = document.getElementById('automationOverlay');
-        if (automationOverlay) automationOverlay.classList.add('hidden');
-        statusBar.classList.add('hidden');
-        progressFill.classList.remove('pulse');
-        progressFill.style.width = '0%';
-        statusText.innerText = 'กำลังสร้างวิดีโอ.. รอสักครู่';
-        createBtn.disabled = false;
-        cancelBtn.disabled = false;
-        chrome.storage.local.remove('jobStatus');
-        console.log('🛑 Automation cancelled by user');
-    });
+    document.getElementById('overlayCancelBtn').addEventListener('click', cancelAutomation);
 
     // --- SORA LOGIC ---
     const soraGeneratePromptBtn = document.getElementById('soraGeneratePromptBtn');

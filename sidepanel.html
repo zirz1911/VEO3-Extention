@@ -294,7 +294,14 @@
     </div>
 
     <div class="status-bar hidden" id="statusBar">
-      <span id="statusText">กำลังสร้างวิดีโอ.. รอสักครู่</span>
+      <div class="status-bar-header">
+        <span id="statusText">กำลังสร้างวิดีโอ.. รอสักครู่</span>
+        <button id="statusCancelBtn" class="status-cancel-btn" title="ยกเลิก">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
       <div class="progress-track">
         <div class="progress-fill" style="width: 0%"></div>
       </div>
