@@ -4,7 +4,7 @@ console.log("TikTok Content Script Loaded");
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'uploadVideo') {
         console.log("📤 Upload request received, url:", request.videoUrl);
-        uploadVideoToTikTok(request.videoUrl, request.caption)
+        uploadVideoToTikTok(request.videoUrl, request.caption, request.productId)
             .then(() => sendResponse({ status: 'done' }))
             .catch(err => {
                 console.error("❌ Upload error:", err);
@@ -24,7 +24,7 @@ async function dismissTutorialIfPresent() {
     }
 }
 
-async function uploadVideoToTikTok(videoUrl, request_caption) {
+async function uploadVideoToTikTok(videoUrl, request_caption, productId) {
     // Step 0: ปิด tutorial popup ถ้ามี
     await dismissTutorialIfPresent();
 
@@ -85,6 +85,88 @@ async function uploadVideoToTikTok(videoUrl, request_caption) {
         await new Promise(r => setTimeout(r, 2000)); // รอ editor โหลด
         await setCaptionText(request_caption);
     }
+
+    // Step 6: กด Add (ปุ่มใน .anchor-tag-container)
+    await new Promise(r => setTimeout(r, 1000));
+    const addAnchorBtn = document.querySelector('.anchor-tag-container button');
+    if (addAnchorBtn) {
+        addAnchorBtn.click();
+        console.log("✅ Clicked Add (anchor)");
+        await new Promise(r => setTimeout(r, 1000));
+    } else {
+        console.warn("⚠️ Add (anchor) button not found — skipping");
+    }
+
+    // Step 7: กด Next (TUXButton--primary)
+    if (!await clickTUXButton('Next')) {
+        console.warn("⚠️ Next button not found — skipping product flow");
+        return;
+    }
+    await new Promise(r => setTimeout(r, 1000));
+
+    // Step 8: กรอก Product ID แล้วกด Enter
+    if (productId) {
+        await fillProductId(productId);
+    }
+
+    // Step 9: กด Next
+    await clickTUXButton('Next');
+    await new Promise(r => setTimeout(r, 1000));
+
+    // Step 10: กด Add (TUXButton--primary)
+    await clickTUXButton('Add');
+    console.log("✅ Product flow complete");
+}
+
+// ── Helper: คลิก TUXButton--primary ตาม label ────────────────────────────────
+async function clickTUXButton(label, retries = 15) {
+    for (let i = 0; i < retries; i++) {
+        const btn = Array.from(document.querySelectorAll('.TUXButton--primary'))
+            .find(b => b.querySelector('.TUXButton-label')?.textContent.trim() === label
+                    && b.getAttribute('aria-disabled') !== 'true');
+        if (btn) {
+            btn.click();
+            console.log(`✅ Clicked TUXButton: ${label}`);
+            return true;
+        }
+        await new Promise(r => setTimeout(r, 300));
+    }
+    console.warn(`⚠️ TUXButton "${label}" not found`);
+    return false;
+}
+
+// ── Helper: กรอก Product ID + Enter + รอ + คลิก Radio ────────────────────────
+async function fillProductId(productId) {
+    console.log("🔍 Searching product:", productId);
+
+    // หา search input
+    let searchInput = null;
+    for (let i = 0; i < 20; i++) {
+        searchInput = document.querySelector('input.TUXTextInputCore-input[placeholder="Search products"]');
+        if (searchInput) break;
+        await new Promise(r => setTimeout(r, 300));
+    }
+    if (!searchInput) { console.warn("⚠️ Product search input not found"); return; }
+
+    searchInput.focus();
+    searchInput.value = productId;
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+    searchInput.dispatchEvent(new KeyboardEvent('keyup',   { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+    console.log("✅ Typed product ID + Enter");
+
+    // รอผลค้นหา แล้วคลิก Radio Button (retry 5 ครั้ง)
+    for (let attempt = 1; attempt <= 5; attempt++) {
+        await new Promise(r => setTimeout(r, attempt === 1 ? 3500 : 2500));
+        const radio = document.querySelector('input[type="radio"].TUXRadioStandalone-input');
+        if (radio) {
+            radio.click();
+            console.log(`✅ Clicked radio button (attempt ${attempt}):`, radio.name?.substring(0, 40));
+            return;
+        }
+        console.log(`⏳ Radio not found (attempt ${attempt}/5), retrying...`);
+    }
+    console.warn("⚠️ Radio button not found after 5 attempts");
 }
 
 async function setCaptionText(text) {

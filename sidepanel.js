@@ -114,7 +114,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const caption = document.getElementById('scriptInput').value.trim();
-            chrome.tabs.sendMessage(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption }, (res) => {
+            const productId = document.getElementById('productIdInput').value.trim();
+            chrome.tabs.sendMessage(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId }, (res) => {
                 if (chrome.runtime.lastError) {
                     alert('Error: ' + chrome.runtime.lastError.message);
                 }
@@ -205,6 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
             camera: document.querySelector('input[name="camera"]:checked')?.value || 'static',
             script: document.getElementById('scriptInput').value,
             language: document.getElementById('languageSelect').value,
+            productId: document.getElementById('productIdInput').value,
             imageDataUrl
         }});
     }
@@ -220,6 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (d.script) document.getElementById('scriptInput').value = d.script;
         if (d.language) document.getElementById('languageSelect').value = d.language;
+        if (d.productId) document.getElementById('productIdInput').value = d.productId;
         if (d.imageDataUrl) {
             imagePreview.src = d.imageDataUrl;
             imagePreview.classList.remove('hidden');
