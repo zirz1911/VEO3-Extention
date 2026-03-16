@@ -116,7 +116,22 @@ async function uploadVideoToTikTok(videoUrl, request_caption, productId) {
 
     // Step 13: กด Post
     await clickPostButton();
-    console.log("✅ Post submitted!");
+
+    // Step 14: ถ้ามี "Continue to post?" modal → กด Post now
+    await new Promise(r => setTimeout(r, 2000));
+    await clickIfPresent(
+        () => findButtonByLabel('Post now'),
+        'Post now (Continue to post? modal)'
+    );
+
+    // Step 15: ถ้ามี "Labeling AI-generated content" modal → กด Turn on
+    await new Promise(r => setTimeout(r, 1000));
+    await clickIfPresent(
+        () => findButtonByContent('Turn on', 'Button__root--type-primary'),
+        'Turn on (AI label modal)'
+    );
+
+    console.log("✅ Post flow complete!");
 }
 
 // ---------------------------------------------------------------------------
@@ -620,6 +635,33 @@ async function fillProductId(productId) {
         console.log("Radio not found (attempt " + attempt + "/5), retrying...");
     }
     console.warn("Radio button not found after 5 attempts");
+}
+
+// ---------------------------------------------------------------------------
+// clickIfPresent — คลิก element ถ้าหาเจอ ถ้าไม่เจอให้ข้ามไป
+// ---------------------------------------------------------------------------
+async function clickIfPresent(finder, label) {
+    const el = finder();
+    if (el) {
+        el.click();
+        console.log(`✅ Clicked: ${label}`);
+    } else {
+        console.log(`⏭ Not found (skip): ${label}`);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// findButtonByContent — หาปุ่มจาก text ใน .Button__content + class
+// ---------------------------------------------------------------------------
+function findButtonByContent(text, typeClass) {
+    return Array.from(document.querySelectorAll(`button.${typeClass}`))
+        .find(b => {
+            const content = b.querySelector('.Button__content');
+            const rect = b.getBoundingClientRect();
+            return content?.textContent.trim() === text
+                && b.getAttribute('aria-disabled') !== 'true'
+                && rect.width > 0 && rect.height > 0;
+        }) || null;
 }
 
 // ---------------------------------------------------------------------------
