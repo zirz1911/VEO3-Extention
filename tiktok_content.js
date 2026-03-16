@@ -14,7 +14,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
+async function dismissTutorialIfPresent() {
+    const gotItBtn = Array.from(document.querySelectorAll('.react-joyride__tooltip button'))
+        .find(b => b.textContent.trim() === 'Got it');
+    if (gotItBtn) {
+        gotItBtn.click();
+        console.log("✅ Dismissed tutorial tooltip");
+        await new Promise(r => setTimeout(r, 500));
+    }
+}
+
 async function uploadVideoToTikTok(videoUrl) {
+    // Step 0: ปิด tutorial popup ถ้ามี
+    await dismissTutorialIfPresent();
+
     // Step 1: ดึง video ผ่าน background (cross-origin proxy)
     console.log("📥 Fetching video via background...");
     const result = await chrome.runtime.sendMessage({
