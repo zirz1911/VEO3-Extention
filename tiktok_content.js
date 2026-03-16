@@ -125,7 +125,7 @@ async function clickTUXButton(label, retries = 15) {
             .find(b => b.querySelector('.TUXButton-label')?.textContent.trim() === label
                     && b.getAttribute('aria-disabled') !== 'true');
         if (btn) {
-            btn.click();
+            humanClickTUX(btn);
             console.log(`✅ Clicked TUXButton: ${label}`);
             return true;
         }
@@ -133,6 +133,24 @@ async function clickTUXButton(label, retries = 15) {
     }
     console.warn(`⚠️ TUXButton "${label}" not found`);
     return false;
+}
+
+function humanClickTUX(el) {
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const init = { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy, button: 0, buttons: 1 };
+    el.dispatchEvent(new PointerEvent('pointerover',  { ...init }));
+    el.dispatchEvent(new PointerEvent('pointerenter', { ...init, bubbles: false }));
+    el.dispatchEvent(new MouseEvent('mouseover',      init));
+    el.dispatchEvent(new PointerEvent('pointermove',  init));
+    el.dispatchEvent(new MouseEvent('mousemove',      init));
+    el.dispatchEvent(new PointerEvent('pointerdown',  init));
+    el.dispatchEvent(new MouseEvent('mousedown',      init));
+    el.dispatchEvent(new PointerEvent('pointerup',    init));
+    el.dispatchEvent(new MouseEvent('mouseup',        init));
+    el.dispatchEvent(new MouseEvent('click',          init));
+    el.focus();
 }
 
 // ── Helper: กรอก Product ID + Enter + รอ + คลิก Radio ────────────────────────
