@@ -477,11 +477,13 @@ async function downloadLatestVideo() {
 
     // ── 4. รอปุ่ม Download โผล่ ──────────────────────────────────────────────
     // <button aria-haspopup="menu"><i class="google-symbols">download</i>...</button>
+    // หาจาก icon name "download" (Material Icons — ไม่ขึ้นกับภาษา UI)
+    // icon อยู่ใน <i> tag เสมอ ไม่ว่า class จะเปลี่ยนหรือไม่
     let downloadBtn = null;
     for (let i = 0; i < 20; i++) {
         downloadBtn = Array.from(document.querySelectorAll('button[aria-haspopup="menu"]'))
             .find(btn => {
-                const icon = btn.querySelector('.google-symbols');
+                const icon = btn.querySelector('i');
                 return icon && icon.textContent.trim() === 'download';
             });
         if (downloadBtn) break;
