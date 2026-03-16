@@ -549,15 +549,6 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
     });
 
     createBtn.addEventListener('click', async () => {
-        // ... (Existing logic for create video - assumes translation of alerts inside if any)
-        // Note: create Video logic seems to rely on content script which might need translation too, 
-        // but focusing on sidepanel strings here.
-        statusText.innerText = "Processing...";
-        statusBar.classList.remove('hidden');
-        // ...
-    });
-
-    createBtn.addEventListener('click', async () => {
         // Show automation overlay
         const automationOverlay = document.getElementById('automationOverlay');
         const overlayStepText = document.getElementById('overlayStepText');
@@ -653,14 +644,35 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
     });
 
     cancelBtn.addEventListener('click', () => {
-        // Reset form or close
         console.log("Cancelled");
+    });
+
+    // ── Overlay Cancel Button ────────────────────────────────────────────────
+    document.getElementById('overlayCancelBtn').addEventListener('click', async () => {
+        // ส่ง cancelJob ไปยัง Flow tab เพื่อหยุด automation
+        try {
+            const flowTabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
+            if (flowTabs.length > 0) {
+                chrome.tabs.sendMessage(flowTabs[0].id, { action: 'cancelJob' });
+            }
+        } catch (e) { /* ignore */ }
+
+        // Reset UI
+        const automationOverlay = document.getElementById('automationOverlay');
+        if (automationOverlay) automationOverlay.classList.add('hidden');
+        statusBar.classList.add('hidden');
+        progressFill.classList.remove('pulse');
+        progressFill.style.width = '0%';
+        statusText.innerText = 'กำลังสร้างวิดีโอ.. รอสักครู่';
+        createBtn.disabled = false;
+        cancelBtn.disabled = false;
+        chrome.storage.local.remove('jobStatus');
+        console.log('🛑 Automation cancelled by user');
     });
 
     // --- SORA LOGIC ---
     const soraGeneratePromptBtn = document.getElementById('soraGeneratePromptBtn');
     const soraGenerateBtn = document.getElementById('soraGenerateBtn');
-    const soraCancelBtn = document.getElementById('soraCancelBtn');
 
     soraGeneratePromptBtn.addEventListener('click', async () => {
         const character = document.getElementById('soraCharacter').value.trim();

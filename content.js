@@ -1,9 +1,12 @@
 // content.js
 console.log("PD Auto VEO3.1 Content Script Loaded");
 
+let _jobCancelled = false;
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "generateVideo") {
         console.log("Received generate request:", request.data);
+        _jobCancelled = false;
         handleGeneration(request.data);
         sendResponse({ status: "started" });
     }
@@ -13,6 +16,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             console.log("🧪 Test Download complete");
         });
         sendResponse({ status: "started" });
+    }
+    if (request.action === "cancelJob") {
+        _jobCancelled = true;
+        removeFlowOverlay();
+        console.log("🛑 Job cancelled");
+        sendResponse({ status: "cancelled" });
     }
 });
 
