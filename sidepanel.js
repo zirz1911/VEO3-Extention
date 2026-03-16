@@ -49,8 +49,12 @@ chrome.runtime.onMessage.addListener((message) => {
         statusText.innerText = "เสร็จสิ้น! กำลังเปิด TikTok...";
 
         chrome.storage.local.set({ jobStatus: { running: false, done: true, text: 'เสร็จสิ้น!' } });
-        ensureTikTokStudioOpen({ focus: false });
-        switchToTikTok();
+
+        // TODO: เปิดใช้งานหลังทดสอบ download เสร็จ
+        // setTimeout(async () => {
+        //     await ensureTikTokStudioOpen({ focus: false });
+        //     await switchToTikTok();
+        // }, 3000);
 
         setTimeout(() => {
             statusBar.classList.add('hidden');
@@ -59,7 +63,7 @@ chrome.runtime.onMessage.addListener((message) => {
             createBtn.disabled = false;
             cancelBtn.disabled = false;
             chrome.storage.local.remove('jobStatus');
-        }, 2000);
+        }, 3000);
     }
 
     if (message.action === 'videoError') {
