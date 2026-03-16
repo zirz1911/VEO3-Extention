@@ -7,6 +7,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         handleGeneration(request.data);
         sendResponse({ status: "started" });
     }
+    if (request.action === "testDownload") {
+        console.log("🧪 Test Download triggered");
+        downloadLatestVideo().then(() => {
+            console.log("🧪 Test Download complete");
+        });
+        sendResponse({ status: "started" });
+    }
 });
 
 async function handleGeneration(data) {

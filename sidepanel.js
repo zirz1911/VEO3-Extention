@@ -89,6 +89,36 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('tiktokBtn').addEventListener('click', () => {
         ensureTikTokStudioOpen({ focus: true });
     });
+
+    // ── Test Download Button ─────────────────────────────────────────────────
+    document.getElementById('testDownloadBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('testDownloadBtn');
+        btn.innerText = '⏳ Downloading...';
+        btn.disabled = true;
+
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (!tab || !tab.url?.includes('labs.google')) {
+                alert('กรุณาเปิดหน้า labs.google ก่อน');
+                return;
+            }
+            chrome.tabs.sendMessage(tab.id, { action: 'testDownload' }, (res) => {
+                if (chrome.runtime.lastError) {
+                    alert('Error: ' + chrome.runtime.lastError.message);
+                }
+            });
+
+            // รอ 5 วิ แล้ว reset ปุ่ม
+            setTimeout(() => {
+                btn.innerText = '🧪 Test Download';
+                btn.disabled = false;
+            }, 5000);
+        } catch (err) {
+            alert('Error: ' + err.message);
+            btn.innerText = '🧪 Test Download';
+            btn.disabled = false;
+        }
+    });
     const imageUploadArea = document.getElementById('imageUploadArea');
     const productImageInput = document.getElementById('productImageInput');
     const imagePreview = document.getElementById('imagePreview');
