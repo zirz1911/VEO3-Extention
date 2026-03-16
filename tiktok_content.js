@@ -160,8 +160,15 @@ async function fillProductId(productId) {
         await new Promise(r => setTimeout(r, attempt === 1 ? 3500 : 2500));
         const radio = document.querySelector('input[type="radio"].TUXRadioStandalone-input');
         if (radio) {
-            radio.click();
+            // Trigger ครบ sequence ให้ React รับรู้
+            radio.focus();
+            radio.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+            radio.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true, cancelable: true }));
+            radio.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true }));
+            radio.checked = true;
+            radio.dispatchEvent(new Event('change', { bubbles: true }));
             console.log(`✅ Clicked radio button (attempt ${attempt}):`, radio.name?.substring(0, 40));
+            await new Promise(r => setTimeout(r, 1500)); // รอ React re-render ก่อนกด Next
             return;
         }
         console.log(`⏳ Radio not found (attempt ${attempt}/5), retrying...`);
