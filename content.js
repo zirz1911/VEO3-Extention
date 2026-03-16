@@ -412,29 +412,31 @@ async function waitForVideoReady() {
 async function downloadLatestVideo() {
     console.log("Step 7: Downloading latest video...");
 
-    // หา [data-tile-id] แรกที่มี <video> อยู่ข้างใน (ข้าม image tile)
-    let tileEl = null;
+    // หา div[data-tile-id] แรกที่มี class sc-c462af31-0 (video tile, ไม่ใช่ image)
+    // video tile = sc-c462af31-0 ddclZo / image tile = sc-5923b123-0 gUubWn
+    let videoTile = null;
     for (let i = 0; i < 20; i++) {
-        const allTiles = document.querySelectorAll('[data-tile-id]');
-        tileEl = Array.from(allTiles).find(t => t.querySelector('video'));
-        if (tileEl) break;
+        videoTile = document.querySelector('div[data-tile-id]:has(video)');
+        if (videoTile) break;
         await new Promise(r => setTimeout(r, 500));
     }
 
-    if (!tileEl) {
+    if (!videoTile) {
         console.warn("⚠️ No video tile found");
         return;
     }
-    console.log("✅ Found video tile:", tileEl.dataset.tileId);
+    console.log("✅ Found video tile:", videoTile.dataset.tileId);
 
-    // Right-click target = span[data-state] ที่ห่อ tile (Radix context menu trigger)
-    const contextTrigger = tileEl.closest('span[data-state]') || tileEl;
-    const rect = contextTrigger.getBoundingClientRect();
+    // Scroll เข้า view ก่อน
+    videoTile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await new Promise(r => setTimeout(r, 300));
+
+    // Hover บน sc-7a78fdd8-0 (hover wrapper ที่ทำให้ overlay โผล่)
+    const hoverEl = videoTile.querySelector('.sc-7a78fdd8-0') || videoTile;
+    const rect = hoverEl.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
 
-    // Hover ก่อน
-    const hoverEl = tileEl.querySelector('.sc-7a78fdd8-0') || contextTrigger;
     hoverEl.dispatchEvent(new PointerEvent('pointerenter', { bubbles: false, cancelable: true, view: window, clientX: cx, clientY: cy }));
     hoverEl.dispatchEvent(new MouseEvent('mouseenter',     { bubbles: false, cancelable: true, view: window, clientX: cx, clientY: cy }));
     hoverEl.dispatchEvent(new MouseEvent('mouseover',      { bubbles: true,  cancelable: true, view: window, clientX: cx, clientY: cy }));
@@ -442,11 +444,13 @@ async function downloadLatestVideo() {
     console.log("✅ Hovered on video tile");
     await new Promise(r => setTimeout(r, 600));
 
-    // Right-click บน Radix context menu trigger (span[data-state])
+    // Right-click บน span[data-state] ที่เป็น direct child ของ div[data-tile-id]
+    // นี่คือ Radix ContextMenu.Trigger จริงๆ
+    const contextTrigger = videoTile.querySelector(':scope > span[data-state]') || videoTile;
     contextTrigger.dispatchEvent(new MouseEvent('contextmenu', {
         bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy, button: 2, buttons: 2
     }));
-    console.log("✅ Right-clicked context trigger:", contextTrigger.tagName, contextTrigger.dataset.state);
+    console.log("✅ Right-clicked on span[data-state]:", contextTrigger.tagName, contextTrigger.dataset.state);
     await new Promise(r => setTimeout(r, 800));
 
     // หา "ดาวน์โหลด" menu item (icon google-symbols text = "download")
