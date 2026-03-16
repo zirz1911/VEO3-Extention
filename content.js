@@ -408,46 +408,45 @@ async function waitForVideoReady() {
 
 }
 
-// ── Step 7: ดาวน์โหลดวิดีโอล่าสุด (right-click → Download → 720p) ────────────
+// ── Step 7: ดาวน์โหลดวิดีโอล่าสุด (hover → right-click → Download → 720p) ───
 async function downloadLatestVideo() {
     console.log("Step 7: Downloading latest video...");
 
-    // หา video tile แรก (data-index="0") — ต้องเป็น video ไม่ใช่ image
-    let firstVideoTile = null;
+    // หา [data-tile-id] แรกที่มี <video> อยู่ข้างใน (ข้าม image tile)
+    let tileEl = null;
     for (let i = 0; i < 20; i++) {
-        const tile = document.querySelector('[data-index="0"]');
-        if (tile && tile.querySelector('video')) {
-            firstVideoTile = tile;
-            break;
-        }
+        const allTiles = document.querySelectorAll('[data-tile-id]');
+        tileEl = Array.from(allTiles).find(t => t.querySelector('video'));
+        if (tileEl) break;
         await new Promise(r => setTimeout(r, 500));
     }
 
-    if (!firstVideoTile) {
-        console.warn("⚠️ No video tile found at index 0");
+    if (!tileEl) {
+        console.warn("⚠️ No video tile found");
         return;
     }
+    console.log("✅ Found video tile:", tileEl.dataset.tileId);
 
-    // Hover target — div wrapper ชั้นใน (sc-7a78fdd8-0) ที่ trigger overlay เมื่อ hover
-    const hoverTarget = firstVideoTile.querySelector('.sc-7a78fdd8-0') || firstVideoTile;
-    const rect = hoverTarget.getBoundingClientRect();
+    // Right-click target = span[data-state] ที่ห่อ tile (Radix context menu trigger)
+    const contextTrigger = tileEl.closest('span[data-state]') || tileEl;
+    const rect = contextTrigger.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-    const mouseInit = { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy, button: 0, buttons: 1 };
 
-    // Hover: pointerenter → mouseenter → mouseover → mousemove
-    hoverTarget.dispatchEvent(new PointerEvent('pointerenter', { ...mouseInit, bubbles: false }));
-    hoverTarget.dispatchEvent(new MouseEvent('mouseenter',  { ...mouseInit, bubbles: false }));
-    hoverTarget.dispatchEvent(new MouseEvent('mouseover',   mouseInit));
-    hoverTarget.dispatchEvent(new MouseEvent('mousemove',   mouseInit));
-    console.log("✅ Hovered on first video tile");
+    // Hover ก่อน
+    const hoverEl = tileEl.querySelector('.sc-7a78fdd8-0') || contextTrigger;
+    hoverEl.dispatchEvent(new PointerEvent('pointerenter', { bubbles: false, cancelable: true, view: window, clientX: cx, clientY: cy }));
+    hoverEl.dispatchEvent(new MouseEvent('mouseenter',     { bubbles: false, cancelable: true, view: window, clientX: cx, clientY: cy }));
+    hoverEl.dispatchEvent(new MouseEvent('mouseover',      { bubbles: true,  cancelable: true, view: window, clientX: cx, clientY: cy }));
+    hoverEl.dispatchEvent(new MouseEvent('mousemove',      { bubbles: true,  cancelable: true, view: window, clientX: cx, clientY: cy }));
+    console.log("✅ Hovered on video tile");
     await new Promise(r => setTimeout(r, 600));
 
-    // Right-click เพื่อเปิด context menu
-    hoverTarget.dispatchEvent(new MouseEvent('contextmenu', {
+    // Right-click บน Radix context menu trigger (span[data-state])
+    contextTrigger.dispatchEvent(new MouseEvent('contextmenu', {
         bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy, button: 2, buttons: 2
     }));
-    console.log("✅ Right-clicked on first video tile");
+    console.log("✅ Right-clicked context trigger:", contextTrigger.tagName, contextTrigger.dataset.state);
     await new Promise(r => setTimeout(r, 800));
 
     // หา "ดาวน์โหลด" menu item (icon google-symbols text = "download")
