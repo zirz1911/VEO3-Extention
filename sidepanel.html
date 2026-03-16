@@ -42,21 +42,20 @@
     <div id="flowUI">
       <div class="section product-image-section">
         <label class="section-label">Reference Image <span class="required">*</span></label>
-        <div class="image-upload-area" id="imageUploadArea">
-          <input type="file" id="productImageInput" accept="image/*" hidden>
+        <label class="image-upload-area" id="imageUploadArea" for="productImageInput">
+          <input type="file" id="productImageInput" accept="image/*" style="display:none">
           <div class="upload-placeholder" id="uploadPlaceholder">
-            <!-- Placeholder content will be handled by JS or CSS background -->
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 5V19M5 12H19" stroke="#64748B" stroke-width="2" stroke-linecap="round" />
             </svg>
           </div>
           <img id="imagePreview" class="image-preview hidden" src="" alt="Product Preview">
-          <button class="remove-image-btn hidden" id="removeImageBtn">
+          <button class="remove-image-btn hidden" id="removeImageBtn" type="button">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
-        </div>
+        </label>
       </div>
 
       <div class="form-grid">

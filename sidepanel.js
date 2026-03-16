@@ -215,11 +215,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusText = document.getElementById('statusText');
 
     // Image Upload Logic
-    imageUploadArea.addEventListener('click', (e) => {
-        if (e.target !== removeImageBtn && !removeImageBtn.contains(e.target)) {
-            productImageInput.click();
-        }
-    });
+    // ใช้ <label for="productImageInput"> แทน — browser เปิด file picker เอง
+    // ไม่ต้อง .click() ผ่าน JS (ทำงานได้บน Android/Orion ด้วย)
 
     // Validation Logic
     const productNameInput = document.getElementById('productName');
@@ -342,6 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
     productNameInput.addEventListener('input', () => { validateForm(); saveFormData(); });
 
     removeImageBtn.addEventListener('click', (e) => {
+        e.preventDefault();   // ป้องกัน label เปิด file picker
         e.stopPropagation();
         productImageInput.value = '';
         imagePreview.src = '';
