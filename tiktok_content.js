@@ -111,10 +111,10 @@ async function uploadVideoToTikTok(videoUrl, request_caption, productId) {
 
     // Step 9: กด Next
     await clickTUXButton('Next');
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 3000)); // รอ page update
 
-    // Step 10: กด Add (TUXButton--primary)
-    await clickTUXButton('Add');
+    // Step 10: กด Add (TUXButton--primary) — retry นานขึ้น
+    await clickTUXButton('Add', 30);
     console.log("✅ Product flow complete");
 }
 
