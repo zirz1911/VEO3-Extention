@@ -338,31 +338,59 @@ function humanClickTUX(el) {
 // ---------------------------------------------------------------------------
 // clickTUXButton — Find and click a TUXButton by label text (XPath + fallback)
 // ---------------------------------------------------------------------------
-function findButtonByXPath(label) {
-    // ลอง XPath หลายแบบตามลำดับ
+function findButtonByLabel(label) {
+    // CSS selectors ลำดับความเจาะจงสูงไปต่ำ
+    const cssSelectors = [
+        `.common-modal-footer button.TUXButton--primary`,
+        `button.TUXButton--primary`,
+        `.TUXButton--primary`,
+    ];
+
+    for (const sel of cssSelectors) {
+        const candidates = Array.from(document.querySelectorAll(sel));
+        // log ทุก candidate เพื่อ debug
+        candidates.forEach((b, i) => {
+            const rect = b.getBoundingClientRect();
+            const text = b.textContent.trim().substring(0, 30);
+            console.log(`  [findBtn] sel="${sel}" [${i}] text="${text}" aria-disabled="${b.getAttribute('aria-disabled')}" rect=${JSON.stringify({x:Math.round(rect.x),y:Math.round(rect.y),w:Math.round(rect.width),h:Math.round(rect.height)})}`);
+        });
+
+        const btn = candidates.find(b => {
+            const labelEl = b.querySelector('.TUXButton-label');
+            const text = labelEl ? labelEl.textContent.trim() : b.textContent.trim();
+            const rect = b.getBoundingClientRect();
+            return text === label
+                && b.getAttribute('aria-disabled') !== 'true'
+                && rect.width > 0 && rect.height > 0;  // ต้อง visible จริง
+        });
+
+        if (btn) {
+            console.log(`Found button "${label}" via selector: ${sel}`);
+            return btn;
+        }
+    }
+
+    // XPath fallback
     const xpaths = [
         `//button[contains(@class,'TUXButton--primary') and .//*[text()='${label}']]`,
         `//button[.//div[text()='${label}']]`,
-        `//button[contains(@class,'TUXButton--primary') and contains(.,'${label}')]`,
     ];
     for (const xpath of xpaths) {
-        const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-        const el = result.singleNodeValue;
+        const el = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
         if (el && el.getAttribute('aria-disabled') !== 'true') {
-            console.log("Found button via XPath:", xpath);
+            const rect = el.getBoundingClientRect();
+            console.log(`Found button "${label}" via XPath: ${xpath} rect=${JSON.stringify({x:Math.round(rect.x),y:Math.round(rect.y),w:Math.round(rect.width),h:Math.round(rect.height)})}`);
             return el;
         }
     }
-    // Fallback: querySelector
-    return Array.from(document.querySelectorAll('.TUXButton--primary'))
-        .find(b => b.querySelector('.TUXButton-label')?.textContent.trim() === label
-                && b.getAttribute('aria-disabled') !== 'true')
-        || null;
+
+    console.warn(`Button "${label}" not found in DOM`);
+    return null;
 }
 
 async function clickTUXButton(label, retries = 15) {
     for (let i = 0; i < retries; i++) {
-        const btn = findButtonByXPath(label);
+        const btn = findButtonByLabel(label);
         if (btn) {
             console.log(`Clicking TUXButton "${label}" — rect:`, JSON.stringify(btn.getBoundingClientRect()));
             // ลอง native click ก่อน (isTrusted ไม่ได้ block จาก content script)
