@@ -627,6 +627,26 @@ button,
     min-height: 44px;
   }
 
+  /* ── Step indicator ── */
+  .step-num {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+
+  .step-label {
+    font-size: 12px;
+  }
+
+  .step-connector {
+    flex: 0 0 12px;
+  }
+
+  /* ── Global images ── */
+  .image-upload-sm {
+    height: 90px !important;
+  }
+
   /* ── Status bar ── */
   #statusText {
     font-size: 13px;
@@ -668,6 +688,148 @@ button,
   .modal-header h2 {
     font-size: 15px;
   }
+}
+
+/* ── Global Inputs ────────────────────────────────────────────────────────── */
+.global-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 4px;
+}
+
+.global-images-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.global-image-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.image-upload-sm {
+  height: 100px !important;
+}
+
+.image-upload-sm .upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.image-upload-sm .upload-placeholder span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Step Indicator ──────────────────────────────────────────────────────── */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 4px;
+}
+
+.step-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 8px;
+  flex: 1;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+
+.step-btn:hover {
+  background: rgba(249, 115, 22, 0.06);
+}
+
+.step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--input-bg);
+  transition: all 0.2s;
+}
+
+.step-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  transition: color 0.2s;
+  white-space: nowrap;
+}
+
+.step-btn.active .step-num {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #000;
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.4);
+}
+
+.step-btn.active .step-label {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.step-btn.done .step-num {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: rgba(249, 115, 22, 0.4);
+  color: var(--primary);
+}
+
+.step-btn.done .step-label {
+  color: rgba(249, 115, 22, 0.7);
+}
+
+.step-connector {
+  flex: 0 0 20px;
+  height: 2px;
+  background: var(--border-color);
+  margin-bottom: 20px;
+}
+
+/* ── Step Panels ─────────────────────────────────────────────────────────── */
+.step-panel {
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.step-panel.active {
+  display: flex;
+}
+
+/* ── Prompt Preview Textarea ─────────────────────────────────────────────── */
+.prompt-preview {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(31, 41, 55, 0.6);
+  resize: vertical;
+  cursor: default;
+}
+
+.prompt-preview:focus {
+  border-color: rgba(249, 115, 22, 0.3);
+  box-shadow: none;
 }
 
 /* SORA styles removed */

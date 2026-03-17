@@ -4,19 +4,18 @@ async function ensureTikTokStudioOpen({ focus = false } = {}) {
 
     const existing = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
     if (existing.length > 0) {
-        console.log('✅ TikTok Studio already open');
+        console.log('TikTok Studio already open');
         if (focus) await chrome.tabs.update(existing[0].id, { active: true });
         return;
     }
 
-    // ไม่เจอ tab TikTok → navigate แท็บปัจจุบันไปที่ URL อัปโหลด
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (activeTab) {
         await chrome.tabs.update(activeTab.id, { url: TIKTOK_URL, active: true });
-        console.log('✅ Navigated current tab to TikTok Studio upload');
+        console.log('Navigated current tab to TikTok Studio upload');
     } else {
         await chrome.tabs.create({ url: TIKTOK_URL, active: focus });
-        console.log('✅ TikTok Studio opened as new tab (fallback)');
+        console.log('TikTok Studio opened as new tab (fallback)');
     }
 }
 
@@ -24,7 +23,7 @@ async function switchToTikTok() {
     const tabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
     if (tabs.length > 0) {
         await chrome.tabs.update(tabs[0].id, { active: true });
-        console.log('✅ Switched to TikTok Studio');
+        console.log('Switched to TikTok Studio');
     }
 }
 
@@ -32,17 +31,17 @@ async function switchToFlow() {
     const tabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
     if (tabs.length > 0) {
         await chrome.tabs.update(tabs[0].id, { active: true });
-        console.log('✅ Switched to Flow');
+        console.log('Switched to Flow');
     }
 }
 
-// ── Listen for videoReady from content script ────────────────────────────────
+// ── Listen for messages from content script ───────────────────────────────
 chrome.runtime.onMessage.addListener((message) => {
-    const statusBar  = document.getElementById('statusBar');
-    const statusText = document.getElementById('statusText');
+    const statusBar   = document.getElementById('statusBar');
+    const statusText  = document.getElementById('statusText');
     const progressFill = document.querySelector('.progress-fill');
-    const createBtn  = document.getElementById('createBtn');
-    const cancelBtn  = document.getElementById('cancelBtn');
+    const createBtn   = document.getElementById('createBtn');
+    const cancelBtn   = document.getElementById('cancelBtn');
 
     if (message.action === 'progress') {
         statusText.innerText = message.text || 'กำลังทำงาน...';
@@ -58,17 +57,15 @@ chrome.runtime.onMessage.addListener((message) => {
 
         chrome.storage.local.set({ jobStatus: { running: false, done: true, text: 'เสร็จสิ้น!' } });
 
-        // สลับไป TikTok แล้ว trigger upload อัตโนมัติ
         statusText.innerText = "ดาวน์โหลดเสร็จ! กำลังสลับไป TikTok...";
         setTimeout(async () => {
             await ensureTikTokStudioOpen({ focus: false });
             await switchToTikTok();
 
-            // รอให้ TikTok tab โหลด แล้ว trigger upload
             await new Promise(r => setTimeout(r, 3000));
 
             const { lastVideoUrl, formData } = await chrome.storage.local.get(['lastVideoUrl', 'formData']);
-            const caption = document.getElementById('captionInput').value.trim() || formData?.caption || '';
+            const caption   = document.getElementById('captionInput').value.trim() || formData?.caption || '';
             const productId = document.getElementById('productIdInput').value.trim() || formData?.productId || '';
 
             if (!lastVideoUrl) {
@@ -78,7 +75,6 @@ chrome.runtime.onMessage.addListener((message) => {
 
             let tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
             if (tiktokTabs.length === 0) {
-                // ยังไม่เจอ → รอให้ tab โหลดเสร็จแล้วค้นอีกครั้ง
                 await new Promise(r => setTimeout(r, 2000));
                 tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
             }
@@ -100,8 +96,8 @@ chrome.runtime.onMessage.addListener((message) => {
             statusBar.classList.add('hidden');
             progressFill.style.width = '0%';
             statusText.innerText = "กำลังสร้างวิดีโอ.. รอสักครู่";
-            createBtn.disabled = false;
-            cancelBtn.disabled = false;
+            createBtn.disabled  = false;
+            cancelBtn.disabled  = false;
             chrome.storage.local.remove('jobStatus');
             const automationOverlay = document.getElementById('automationOverlay');
             if (automationOverlay) automationOverlay.classList.add('hidden');
@@ -110,165 +106,374 @@ chrome.runtime.onMessage.addListener((message) => {
 
     if (message.action === 'videoError') {
         progressFill.classList.remove('pulse');
-        statusText.innerText = `❌ Error: ${message.error}`;
-        createBtn.disabled = false;
-        cancelBtn.disabled = false;
+        statusText.innerText = `Error: ${message.error}`;
+        createBtn.disabled  = false;
+        cancelBtn.disabled  = false;
         chrome.storage.local.set({ jobStatus: { running: false, error: message.error } });
         const automationOverlay = document.getElementById('automationOverlay');
         if (automationOverlay) automationOverlay.classList.add('hidden');
     }
 });
 
-function isPopupMode() {
-    return !chrome.sidePanel || document.body.classList.contains('popup-mode');
+// ── Prompt template builders ───────────────────────────────────────────────
+
+function buildStep1Prompt() {
+    const gender     = document.querySelector('input[name="gender1"]:checked')?.value === 'female' ? 'female' : 'male';
+    const genderWord = gender === 'female' ? 'female' : 'male';
+    const action     = document.getElementById('action1')?.value || 'holding';
+    const location   = document.getElementById('location1')?.value || '';
+    const outfit     = document.getElementById('outfit1')?.value || '';
+    const mood       = document.getElementById('mood1')?.value || '';
+    const product    = document.getElementById('productName')?.value || 'product';
+
+    return `Create a realistic candid smartphone photo of a ${genderWord} Thai person,
+using the attached face reference for facial structure and features.
+
+The person is ${action} the ${product} shown in the attached product image.
+
+Setting: ${location}
+
+Clothing: ${outfit}
+
+Expression: ${mood}
+
+Camera: shot on smartphone, auto white balance, slight noise in shadows,
+not professionally lit. Slightly off-center framing, natural ambient light only.
+
+Style: realistic, not retouched, visible skin texture, no studio lighting,
+no perfect symmetry, JPEG compression artifacts, warm Thai daylight tone.
+Photo looks like a genuine Shopee or TikTok customer review image.
+
+--- STRICT RULES ---
+- The product in the image MUST match the attached product photo exactly
+  in shape, color, size, and detail. Do NOT alter, redesign, or add extra parts.
+- Background must contain ONLY objects that naturally belong in ${location}.
+  Do NOT generate random or unrelated props.
+- Do NOT add any object that is not explicitly described in this prompt.
+- Keep the background simple and clean.
+  Only allow: walls, floor, sky, trees, fences, doors
+  — things that already exist in a real ${location}.
+- Do NOT generate floating objects, extra tools, random furniture,
+  or decorations that feel out of place.
+- Hands and fingers must look natural with correct anatomy.
+  5 fingers per hand, proper grip on product.
+- No text, watermark, or logo unless specified.`;
 }
 
+function buildStep2Prompt() {
+    const gender     = document.querySelector('input[name="gender2"]:checked')?.value === 'female' ? 'female' : 'male';
+    const genderWord = gender === 'female' ? 'female' : 'male';
+    const action     = document.getElementById('action2')?.value || '';
+    const product    = document.getElementById('productName')?.value || 'product';
+    const script     = document.getElementById('scriptInput')?.value || '';
+    const platform   = document.getElementById('platform2')?.value || 'TikTok';
+    const pacing     = document.getElementById('pacing2')?.value || '';
+
+    return `A ${genderWord} Thai person is ${action} the ${product}.
+
+Location: สุ่มตามประเภทสินค้า
+
+Script/Key Message: ${script}
+
+End with CTA: "สั่งซื้อได้เลย"
+
+Style: UGC smartphone footage, handheld slightly shaky,
+natural Thai daylight, no cinematic filter, no heavy color grading.
+Looks like a real person filming themselves for ${platform}.
+
+Pacing: ${pacing}`;
+}
+
+function buildStep3Prompt() {
+    const platform   = document.getElementById('platform3')?.value || 'TikTok';
+    const product    = document.getElementById('productName')?.value || 'product';
+    const script     = document.getElementById('captionScript')?.value || '';
+    const audience   = document.getElementById('audience3')?.value || '';
+    const hookStyle  = document.getElementById('hookStyle3')?.value || '';
+
+    return `You are a Thai social media copywriter who writes casual, relatable
+product captions for ${platform}.
+
+Product: ${product}
+Script/Key Message: ${script}
+Target Audience: ${audience}
+
+--- OUTPUT FORMAT ---
+
+Write 1 caption variation:
+
+**Version A - Short (TikTok/Reels):**
+- 2-3 lines max
+- Start with ${hookStyle}
+- End with CTA
+- Include 2-5 hashtags mixing:
+  ${product} related + trending Thai hashtags + niche community hashtags
+
+--- RULES ---
+- เขียนภาษาไทยแบบพูด ไม่เป็นทางการ
+- ห้ามใช้คำว่า "สุดยอด" "เหลือเชื่อ" "ดีที่สุด" (ฟังเหมือนโฆษณา)
+- ใช้คำแบบคนรีวิวจริง เช่น "ใช้มาเดือนนึงแล้ว" "ตอนแรกไม่แน่ใจ" "บอกเลยว่าคุ้ม"
+- Hashtag ต้องมีทั้งไทยและอังกฤษ
+- ห้ามเกินจำนวน hashtag ที่กำหนด`;
+}
+
+// ── DOMContentLoaded ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    // ── TikTok Button ────────────────────────────────────────────────────────
-    document.getElementById('tiktokBtn').addEventListener('click', () => {
-        ensureTikTokStudioOpen({ focus: true });
-    });
+    // Element refs
+    const productImageInput  = document.getElementById('productImageInput');
+    const imagePreview       = document.getElementById('imagePreview');
+    const uploadPlaceholder  = document.getElementById('uploadPlaceholder');
+    const removeImageBtn     = document.getElementById('removeImageBtn');
 
-    // ── Test Upload Button ───────────────────────────────────────────────────
-    document.getElementById('testUploadBtn').addEventListener('click', async () => {
-        const btn = document.getElementById('testUploadBtn');
-        btn.innerText = '⏳ Uploading...';
-        btn.disabled = true;
+    const faceImageInput      = document.getElementById('faceImageInput');
+    const faceImagePreview    = document.getElementById('faceImagePreview');
+    const faceUploadPlaceholder = document.getElementById('faceUploadPlaceholder');
+    const removeFaceImageBtn  = document.getElementById('removeFaceImageBtn');
 
-        try {
-            const { lastVideoUrl } = await chrome.storage.local.get('lastVideoUrl');
-            if (!lastVideoUrl) {
-                alert('ยังไม่มี video URL — กด Test Download ก่อน');
-                btn.innerText = '📤 Test Upload';
-                btn.disabled = false;
-                return;
-            }
-
-            const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
-            if (tiktokTabs.length === 0) {
-                alert('ไม่พบหน้า TikTok Studio — กรุณาเปิดหน้านั้นก่อน');
-                btn.innerText = '📤 Test Upload';
-                btn.disabled = false;
-                return;
-            }
-
-            const caption = document.getElementById('captionInput').value.trim();
-            const productId = document.getElementById('productIdInput').value.trim();
-            chrome.tabs.sendMessage(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId }, (res) => {
-                if (chrome.runtime.lastError) {
-                    alert('Error: ' + chrome.runtime.lastError.message);
-                }
-            });
-
-            setTimeout(() => {
-                btn.innerText = '📤 Test Upload';
-                btn.disabled = false;
-            }, 15000);
-
-        } catch (err) {
-            alert('Error: ' + err.message);
-            btn.innerText = '📤 Test Upload';
-            btn.disabled = false;
-        }
-    });
-
-    // ── Test Download Button ─────────────────────────────────────────────────
-    document.getElementById('testDownloadBtn').addEventListener('click', async () => {
-        const btn = document.getElementById('testDownloadBtn');
-        btn.innerText = '⏳ Downloading...';
-        btn.disabled = true;
-
-        try {
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (!tab || !tab.url?.includes('labs.google')) {
-                alert('กรุณาเปิดหน้า labs.google ก่อน');
-                return;
-            }
-            chrome.tabs.sendMessage(tab.id, { action: 'testDownload' }, (res) => {
-                if (chrome.runtime.lastError) {
-                    alert('Error: ' + chrome.runtime.lastError.message);
-                }
-            });
-
-            // รอ 5 วิ แล้ว reset ปุ่ม
-            setTimeout(() => {
-                btn.innerText = '🧪 Test Download';
-                btn.disabled = false;
-            }, 5000);
-        } catch (err) {
-            alert('Error: ' + err.message);
-            btn.innerText = '🧪 Test Download';
-            btn.disabled = false;
-        }
-    });
-    const imageUploadArea = document.getElementById('imageUploadArea');
-    const productImageInput = document.getElementById('productImageInput');
-    const imagePreview = document.getElementById('imagePreview');
-    const uploadPlaceholder = document.getElementById('uploadPlaceholder');
-    const removeImageBtn = document.getElementById('removeImageBtn');
-
-    const analyzeBtn = document.getElementById('analyzeBtn');
-    const createBtn = document.getElementById('createBtn');
-    const cancelBtn = document.getElementById('cancelBtn');
-    const statusBar = document.getElementById('statusBar');
-    const progressFill = document.querySelector('.progress-fill');
-    const statusText = document.getElementById('statusText');
-
-    // Image Upload Logic
-    // ใช้ <label for="productImageInput"> แทน — browser เปิด file picker เอง
-    // ไม่ต้อง .click() ผ่าน JS (ทำงานได้บน Android/Orion ด้วย)
-
-    // Validation Logic
+    const analyzeBtn    = document.getElementById('analyzeBtn');
+    const createBtn     = document.getElementById('createBtn');
+    const cancelBtn     = document.getElementById('cancelBtn');
+    const statusBar     = document.getElementById('statusBar');
+    const progressFill  = document.querySelector('.progress-fill');
+    const statusText    = document.getElementById('statusText');
     const productNameInput = document.getElementById('productName');
-    const flowUI = document.getElementById('flowUI');
-    const soraUI = document.getElementById('soraUI');
+    const flowUI  = document.getElementById('flowUI');
+    const soraUI  = document.getElementById('soraUI');
 
-    const validateForm = () => {
-        // analyzeBtn always enabled
-        analyzeBtn.disabled = false;
-    };
+    // ── Step navigation ──────────────────────────────────────────────────
+    let currentStep = 1;
 
-    // ── Session persistence: save form + restore on popup reopen ─────────────
+    function goToStep(step) {
+        // Deactivate all
+        document.querySelectorAll('.step-btn').forEach(btn => {
+            btn.classList.remove('active');
+            btn.classList.remove('done');
+        });
+        document.querySelectorAll('.step-panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+
+        // Mark done steps
+        for (let i = 1; i < step; i++) {
+            const btn = document.getElementById(`stepBtn${i}`);
+            if (btn) btn.classList.add('done');
+        }
+
+        // Activate current
+        const activeBtn   = document.getElementById(`stepBtn${step}`);
+        const activePanel = document.getElementById(`stepPanel${step}`);
+        if (activeBtn)   activeBtn.classList.add('active');
+        if (activePanel) activePanel.classList.add('active');
+
+        currentStep = step;
+    }
+
+    document.querySelectorAll('.step-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const step = parseInt(btn.dataset.step, 10);
+            goToStep(step);
+        });
+    });
+
+    document.getElementById('goStep2Btn').addEventListener('click', () => {
+        // Sync gender1 -> gender2
+        const g1 = document.querySelector('input[name="gender1"]:checked')?.value;
+        if (g1) {
+            const g2radio = document.querySelector(`input[name="gender2"][value="${g1}"]`);
+            if (g2radio) g2radio.checked = true;
+        }
+        goToStep(2);
+        updateStep2Prompt();
+    });
+
+    // ── Prompt auto-update ────────────────────────────────────────────────
+
+    function updateStep1Prompt() {
+        const el = document.getElementById('promptPreview1');
+        if (el) el.value = buildStep1Prompt();
+    }
+
+    function updateStep2Prompt() {
+        const el = document.getElementById('promptPreview2');
+        if (el) el.value = buildStep2Prompt();
+    }
+
+    function updateStep3Prompt() {
+        const el = document.getElementById('promptPreview3');
+        if (el) el.value = buildStep3Prompt();
+    }
+
+    // Step 1 field listeners
+    ['action1', 'location1', 'outfit1', 'mood1'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', () => { updateStep1Prompt(); saveFormData(); });
+    });
+    document.querySelectorAll('input[name="gender1"]').forEach(r => {
+        r.addEventListener('change', () => { updateStep1Prompt(); saveFormData(); });
+    });
+
+    // Step 2 field listeners
+    ['action2', 'scriptInput', 'platform2', 'pacing2', 'ratioSelect', 'quantitySelect', 'veoModelSelect'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', () => { updateStep2Prompt(); saveFormData(); });
+            el.addEventListener('input',  () => { updateStep2Prompt(); saveFormData(); });
+        }
+    });
+    document.querySelectorAll('input[name="gender2"]').forEach(r => {
+        r.addEventListener('change', () => { updateStep2Prompt(); saveFormData(); });
+    });
+
+    // Step 3 field listeners
+    ['platform3', 'captionScript', 'audience3', 'hookStyle3'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', () => { updateStep3Prompt(); saveFormData(); });
+            el.addEventListener('input',  () => { updateStep3Prompt(); saveFormData(); });
+        }
+    });
+
+    // productName affects all steps
+    productNameInput.addEventListener('input', () => {
+        updateStep1Prompt();
+        updateStep2Prompt();
+        updateStep3Prompt();
+        saveFormData();
+    });
+
+    // ── Step 2 → Step 3 navigation (via step btn) - sync data ────────────
+    document.getElementById('stepBtn3').addEventListener('click', () => {
+        // Sync script2 -> captionScript
+        const script = document.getElementById('scriptInput').value;
+        const captionScriptEl = document.getElementById('captionScript');
+        if (captionScriptEl && !captionScriptEl.value && script) {
+            captionScriptEl.value = script;
+        }
+
+        // Sync platform2 -> platform3 if matching option exists
+        const p2    = document.getElementById('platform2').value;
+        const p3sel = document.getElementById('platform3');
+        if (p3sel) {
+            const opt = Array.from(p3sel.options).find(o => o.value === p2);
+            if (opt) p3sel.value = p2;
+        }
+
+        goToStep(3);
+        updateStep3Prompt();
+    });
+
+    // ── Copy Prompt buttons ───────────────────────────────────────────────
+    document.getElementById('copyPrompt1Btn').addEventListener('click', () => {
+        const text = document.getElementById('promptPreview1').value;
+        if (text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById('copyPrompt1Btn');
+                const orig = btn.innerHTML;
+                btn.innerHTML = '<span class="icon">✅</span> Copied!';
+                setTimeout(() => { btn.innerHTML = orig; }, 1500);
+            });
+        }
+    });
+
+    document.getElementById('copyCaptionPromptBtn').addEventListener('click', () => {
+        const text = document.getElementById('promptPreview3').value;
+        if (text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById('copyCaptionPromptBtn');
+                const orig = btn.innerHTML;
+                btn.innerHTML = '<span class="icon">✅</span> Copied!';
+                setTimeout(() => { btn.innerHTML = orig; }, 1500);
+            });
+        }
+    });
+
+    // ── Session persistence ───────────────────────────────────────────────
     function saveFormData() {
+        const faceDataUrl = !faceImagePreview.classList.contains('hidden') && faceImagePreview.src
+            ? faceImagePreview.src : null;
         const imageDataUrl = !imagePreview.classList.contains('hidden') && imagePreview.src
             ? imagePreview.src : null;
+
         chrome.storage.local.set({ formData: {
-            productName: productNameInput.value,
-            ratio: document.getElementById('ratioSelect').value,
-            quantity: document.getElementById('quantitySelect').value,
-            veoModel: document.getElementById('veoModelSelect').value,
-            camera: document.querySelector('input[name="camera"]:checked')?.value || 'static',
-            script: document.getElementById('scriptInput').value,
-            caption: document.getElementById('captionInput').value,
-            language: document.getElementById('languageSelect').value,
-            productId: document.getElementById('productIdInput').value,
+            productName:  productNameInput.value,
+            ratio:        document.getElementById('ratioSelect').value,
+            quantity:     document.getElementById('quantitySelect').value,
+            veoModel:     document.getElementById('veoModelSelect').value,
+            script:       document.getElementById('scriptInput').value,
+            caption:      document.getElementById('captionInput').value,
+            productId:    document.getElementById('productIdInput').value,
+            captionScript: document.getElementById('captionScript').value,
+            gender1:      document.querySelector('input[name="gender1"]:checked')?.value || 'male',
+            action1:      document.getElementById('action1').value,
+            location1:    document.getElementById('location1').value,
+            outfit1:      document.getElementById('outfit1').value,
+            mood1:        document.getElementById('mood1').value,
+            gender2:      document.querySelector('input[name="gender2"]:checked')?.value || 'male',
+            action2:      document.getElementById('action2').value,
+            platform2:    document.getElementById('platform2').value,
+            pacing2:      document.getElementById('pacing2').value,
+            platform3:    document.getElementById('platform3').value,
+            audience3:    document.getElementById('audience3').value,
+            hookStyle3:   document.getElementById('hookStyle3').value,
+            currentStep,
+            faceDataUrl,
             imageDataUrl
         }});
     }
 
     function restoreFormData(d) {
         if (d.productName) productNameInput.value = d.productName;
-        if (d.ratio) document.getElementById('ratioSelect').value = d.ratio;
+        if (d.ratio)    document.getElementById('ratioSelect').value    = d.ratio;
         if (d.quantity) document.getElementById('quantitySelect').value = d.quantity;
         if (d.veoModel) document.getElementById('veoModelSelect').value = d.veoModel;
-        if (d.camera) {
-            const r = document.querySelector(`input[name="camera"][value="${d.camera}"]`);
+        if (d.script)   document.getElementById('scriptInput').value    = d.script;
+        if (d.caption)  document.getElementById('captionInput').value   = d.caption;
+        if (d.productId) document.getElementById('productIdInput').value = d.productId;
+        if (d.captionScript) document.getElementById('captionScript').value = d.captionScript;
+
+        if (d.gender1) {
+            const r = document.querySelector(`input[name="gender1"][value="${d.gender1}"]`);
             if (r) r.checked = true;
         }
-        if (d.script) document.getElementById('scriptInput').value = d.script;
-        if (d.caption) document.getElementById('captionInput').value = d.caption;
-        if (d.language) document.getElementById('languageSelect').value = d.language;
-        if (d.productId) document.getElementById('productIdInput').value = d.productId;
+        if (d.action1)   document.getElementById('action1').value   = d.action1;
+        if (d.location1) document.getElementById('location1').value = d.location1;
+        if (d.outfit1)   document.getElementById('outfit1').value   = d.outfit1;
+        if (d.mood1)     document.getElementById('mood1').value     = d.mood1;
+
+        if (d.gender2) {
+            const r = document.querySelector(`input[name="gender2"][value="${d.gender2}"]`);
+            if (r) r.checked = true;
+        }
+        if (d.action2)   document.getElementById('action2').value   = d.action2;
+        if (d.platform2) document.getElementById('platform2').value = d.platform2;
+        if (d.pacing2)   document.getElementById('pacing2').value   = d.pacing2;
+        if (d.platform3) document.getElementById('platform3').value = d.platform3;
+        if (d.audience3) document.getElementById('audience3').value = d.audience3;
+        if (d.hookStyle3) document.getElementById('hookStyle3').value = d.hookStyle3;
+
+        if (d.faceDataUrl) {
+            faceImagePreview.src = d.faceDataUrl;
+            faceImagePreview.classList.remove('hidden');
+            faceUploadPlaceholder.classList.add('hidden');
+            removeFaceImageBtn.classList.remove('hidden');
+        }
         if (d.imageDataUrl) {
             imagePreview.src = d.imageDataUrl;
             imagePreview.classList.remove('hidden');
             uploadPlaceholder.classList.add('hidden');
             removeImageBtn.classList.remove('hidden');
         }
-        validateForm();
+
+        if (d.currentStep && d.currentStep >= 1 && d.currentStep <= 3) {
+            goToStep(d.currentStep);
+        }
+
+        updateStep1Prompt();
+        updateStep2Prompt();
+        updateStep3Prompt();
     }
 
-    // ── Shared cancel logic ──────────────────────────────────────────────────
+    // ── Shared cancel logic ───────────────────────────────────────────────
     async function cancelAutomation() {
         try {
             const flowTabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
@@ -283,14 +488,25 @@ document.addEventListener('DOMContentLoaded', () => {
         createBtn.disabled = false;
         cancelBtn.disabled = false;
         chrome.storage.local.remove('jobStatus');
-        console.log('🛑 Automation cancelled by user');
+        console.log('Automation cancelled by user');
     }
 
     document.getElementById('statusCancelBtn').addEventListener('click', cancelAutomation);
+    document.getElementById('overlayCancelBtn').addEventListener('click', cancelAutomation);
 
-    // Restore state when popup opens
+    cancelBtn.addEventListener('click', () => {
+        console.log("Cancelled");
+    });
+
+    // ── Restore state on popup open ───────────────────────────────────────
     chrome.storage.local.get(['jobStatus', 'formData'], (result) => {
         if (result.formData) restoreFormData(result.formData);
+        else {
+            updateStep1Prompt();
+            updateStep2Prompt();
+            updateStep3Prompt();
+        }
+
         const js = result.jobStatus;
         if (js?.running) {
             statusBar.classList.remove('hidden');
@@ -298,199 +514,234 @@ document.addEventListener('DOMContentLoaded', () => {
             statusText.innerText = js.text || 'กำลังทำงาน...';
             createBtn.disabled = true;
             cancelBtn.disabled = true;
-            // โชว์ overlay กลับมาด้วยเมื่อเปิด sidepanel ใหม่ระหว่าง job รัน
             const automationOverlay = document.getElementById('automationOverlay');
-            const overlayStepText = document.getElementById('overlayStepText');
+            const overlayStepText   = document.getElementById('overlayStepText');
             if (automationOverlay) {
                 if (overlayStepText) overlayStepText.innerText = js.text || 'กำลังทำงาน...';
                 automationOverlay.classList.remove('hidden');
             }
         } else if (js?.done) {
-            statusText.innerText = 'เสร็จสิ้น! ✅';
+            statusText.innerText = 'เสร็จสิ้น!';
             statusBar.classList.remove('hidden');
             setTimeout(() => {
                 statusBar.classList.add('hidden');
                 chrome.storage.local.remove('jobStatus');
             }, 3000);
         } else if (js?.error) {
-            statusText.innerText = `❌ ${js.error}`;
+            statusText.innerText = `${js.error}`;
             statusBar.classList.remove('hidden');
         }
     });
 
+    // ── Product Image Upload ──────────────────────────────────────────────
     productImageInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (e) => {
-                imagePreview.src = e.target.result;
+            reader.onload = (ev) => {
+                imagePreview.src = ev.target.result;
                 imagePreview.classList.remove('hidden');
                 uploadPlaceholder.classList.add('hidden');
                 removeImageBtn.classList.remove('hidden');
-                validateForm();
                 saveFormData();
             };
             reader.readAsDataURL(file);
-        } else {
-            validateForm();
         }
     });
 
-    productNameInput.addEventListener('input', () => { validateForm(); saveFormData(); });
-
     removeImageBtn.addEventListener('click', (e) => {
-        e.preventDefault();   // ป้องกัน label เปิด file picker
+        e.preventDefault();
         e.stopPropagation();
         productImageInput.value = '';
         imagePreview.src = '';
         imagePreview.classList.add('hidden');
         uploadPlaceholder.classList.remove('hidden');
         removeImageBtn.classList.add('hidden');
-        validateForm();
         saveFormData();
     });
 
-    // SORA Image Upload Logic
-    const soraImageUploadArea = document.getElementById('soraImageUploadArea');
-    const soraImageInput = document.getElementById('soraImageInput');
-    const soraImagePreview = document.getElementById('soraImagePreview');
-    const soraUploadPlaceholder = document.getElementById('soraUploadPlaceholder');
-    const soraRemoveImageBtn = document.getElementById('soraRemoveImageBtn');
-
-    soraImageUploadArea.addEventListener('click', (e) => {
-        if (e.target !== soraRemoveImageBtn && !soraRemoveImageBtn.contains(e.target)) {
-            soraImageInput.click();
-        }
-    });
-
-    soraImageInput.addEventListener('change', (e) => {
+    // ── Face Image Upload ─────────────────────────────────────────────────
+    faceImageInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (e) => {
-                soraImagePreview.src = e.target.result;
-                soraImagePreview.classList.remove('hidden');
-                soraUploadPlaceholder.classList.add('hidden');
-                soraRemoveImageBtn.classList.remove('hidden');
+            reader.onload = (ev) => {
+                faceImagePreview.src = ev.target.result;
+                faceImagePreview.classList.remove('hidden');
+                faceUploadPlaceholder.classList.add('hidden');
+                removeFaceImageBtn.classList.remove('hidden');
+                saveFormData();
             };
             reader.readAsDataURL(file);
         }
     });
 
-    soraRemoveImageBtn.addEventListener('click', (e) => {
+    removeFaceImageBtn.addEventListener('click', (e) => {
+        e.preventDefault();
         e.stopPropagation();
-        soraImageInput.value = '';
-        soraImagePreview.src = '';
-        soraImagePreview.classList.add('hidden');
-        soraUploadPlaceholder.classList.remove('hidden');
-        soraRemoveImageBtn.classList.add('hidden');
+        faceImageInput.value = '';
+        faceImagePreview.src = '';
+        faceImagePreview.classList.add('hidden');
+        faceUploadPlaceholder.classList.remove('hidden');
+        removeFaceImageBtn.classList.add('hidden');
+        saveFormData();
     });
 
-    // Button Logic
-
-    // Platform Menu Logic
-    const menuBtn = document.getElementById('menuBtn');
+    // ── Platform Menu ─────────────────────────────────────────────────────
+    const menuBtn      = document.getElementById('menuBtn');
     const platformMenu = document.getElementById('platformMenu');
-    const menuItems = document.querySelectorAll('.dropdown-item');
 
-    // Toggle Menu
     menuBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         platformMenu.classList.toggle('hidden');
     });
 
-    // Handle Menu Item Click
-    menuItems.forEach(item => {
+    document.querySelectorAll('.dropdown-item').forEach(item => {
         item.addEventListener('click', () => {
-            const url = item.dataset.url;
+            const url  = item.dataset.url;
             const text = item.innerText;
 
             if (url) {
                 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                     if (tabs[0]) {
-                        chrome.tabs.update(tabs[0].id, { url: url });
+                        chrome.tabs.update(tabs[0].id, { url });
                         platformMenu.classList.add('hidden');
                     }
                 });
             }
 
-            // UI Switching Logic
             if (text === 'SORA') {
                 flowUI.classList.add('hidden');
                 soraUI.classList.remove('hidden');
             } else {
-                // Default to Flow for others (Flow, Meta)
                 soraUI.classList.add('hidden');
                 flowUI.classList.remove('hidden');
             }
         });
     });
 
-    // Close Menu when clicking outside
     document.addEventListener('click', (e) => {
         if (!platformMenu.contains(e.target) && !menuBtn.contains(e.target)) {
             platformMenu.classList.add('hidden');
         }
     });
 
-    // Settings Logic
-    const settingsBtn = document.getElementById('settingsBtn');
-    const settingsModal = document.getElementById('settingsModal');
-    const closeSettingsBtn = document.getElementById('closeSettingsBtn');
-    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    // ── Settings ──────────────────────────────────────────────────────────
+    const settingsBtn       = document.getElementById('settingsBtn');
+    const settingsModal     = document.getElementById('settingsModal');
+    const closeSettingsBtn  = document.getElementById('closeSettingsBtn');
+    const saveSettingsBtn   = document.getElementById('saveSettingsBtn');
     const googleApiKeyInput = document.getElementById('googleApiKey');
     const chatgptApiKeyInput = document.getElementById('chatgptApiKey');
 
-    // Open Settings
     settingsBtn.addEventListener('click', () => {
-        // Load saved keys
         chrome.storage.local.get(['googleApiKey', 'chatgptApiKey'], (result) => {
-            if (result.googleApiKey) googleApiKeyInput.value = result.googleApiKey;
+            if (result.googleApiKey)  googleApiKeyInput.value  = result.googleApiKey;
             if (result.chatgptApiKey) chatgptApiKeyInput.value = result.chatgptApiKey;
         });
         settingsModal.classList.remove('hidden');
     });
 
-    // Close Settings
     closeSettingsBtn.addEventListener('click', () => {
         settingsModal.classList.add('hidden');
     });
 
-    // Close if clicking outside modal content
     settingsModal.addEventListener('click', (e) => {
         if (e.target === settingsModal || e.target.classList.contains('modal-overlay')) {
             settingsModal.classList.add('hidden');
         }
     });
 
-    // Save Settings
     saveSettingsBtn.addEventListener('click', () => {
-        const googleApiKey = googleApiKeyInput.value.trim();
-        const chatgptApiKey = chatgptApiKeyInput.value.trim();
-
         chrome.storage.local.set({
-            googleApiKey: googleApiKey,
-            chatgptApiKey: chatgptApiKey
+            googleApiKey:  googleApiKeyInput.value.trim(),
+            chatgptApiKey: chatgptApiKeyInput.value.trim()
         }, () => {
-            // Visual feedback
-            const originalText = saveSettingsBtn.innerText;
+            const orig = saveSettingsBtn.innerText;
             saveSettingsBtn.innerText = 'บันทึกแล้ว!';
             setTimeout(() => {
-                saveSettingsBtn.innerText = originalText;
+                saveSettingsBtn.innerText = orig;
                 settingsModal.classList.add('hidden');
             }, 1000);
         });
     });
 
-    // Button Logic
-    analyzeBtn.addEventListener('click', async () => {
-        const productName = document.getElementById('productName').value || "Product";
-        const selectedModel = document.querySelector('input[name="flowModel"]:checked').value;
+    // ── TikTok Button ─────────────────────────────────────────────────────
+    document.getElementById('tiktokBtn').addEventListener('click', () => {
+        ensureTikTokStudioOpen({ focus: true });
+    });
 
-        // Get API Keys from storage
+    // ── Test Upload Button ────────────────────────────────────────────────
+    document.getElementById('testUploadBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('testUploadBtn');
+        btn.innerText = 'Uploading...';
+        btn.disabled = true;
+
+        try {
+            const { lastVideoUrl } = await chrome.storage.local.get('lastVideoUrl');
+            if (!lastVideoUrl) {
+                alert('No video URL — click Test Download first');
+                btn.innerText = 'Test Upload';
+                btn.disabled = false;
+                return;
+            }
+
+            const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
+            if (tiktokTabs.length === 0) {
+                alert('TikTok Studio tab not found');
+                btn.innerText = 'Test Upload';
+                btn.disabled = false;
+                return;
+            }
+
+            const caption   = document.getElementById('captionInput').value.trim();
+            const productId = document.getElementById('productIdInput').value.trim();
+            chrome.tabs.sendMessage(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId }, (res) => {
+                if (chrome.runtime.lastError) alert('Error: ' + chrome.runtime.lastError.message);
+            });
+
+            setTimeout(() => { btn.innerText = 'Test Upload'; btn.disabled = false; }, 15000);
+        } catch (err) {
+            alert('Error: ' + err.message);
+            btn.innerText = 'Test Upload';
+            btn.disabled = false;
+        }
+    });
+
+    // ── Test Download Button ──────────────────────────────────────────────
+    document.getElementById('testDownloadBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('testDownloadBtn');
+        btn.innerText = 'Downloading...';
+        btn.disabled = true;
+
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (!tab || !tab.url?.includes('labs.google')) {
+                alert('Please open labs.google first');
+                btn.innerText = 'Test Download';
+                btn.disabled = false;
+                return;
+            }
+            chrome.tabs.sendMessage(tab.id, { action: 'testDownload' }, (res) => {
+                if (chrome.runtime.lastError) alert('Error: ' + chrome.runtime.lastError.message);
+            });
+
+            setTimeout(() => { btn.innerText = 'Test Download'; btn.disabled = false; }, 5000);
+        } catch (err) {
+            alert('Error: ' + err.message);
+            btn.innerText = 'Test Download';
+            btn.disabled = false;
+        }
+    });
+
+    // ── Analyze / Generate Prompt (Step 2) ───────────────────────────────
+    analyzeBtn.addEventListener('click', async () => {
+        const productName    = document.getElementById('productName').value || "Product";
+        const selectedModel  = document.querySelector('input[name="flowModel"]:checked').value;
+
         chrome.storage.local.get(['chatgptApiKey', 'googleApiKey'], async (result) => {
             const chatgptKey = result.chatgptApiKey;
-            const googleKey = result.googleApiKey;
+            const googleKey  = result.googleApiKey;
 
             if (selectedModel === 'chatgpt' && !chatgptKey) {
                 alert("Please enter ChatGPT API Key in Settings.");
@@ -504,16 +755,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             analyzeBtn.innerHTML = '<span class="icon">⏳</span> Generating...';
-            analyzeBtn.disabled = true;
+            analyzeBtn.disabled  = true;
 
-            const language = document.getElementById('languageSelect').value;
+            const action   = document.getElementById('action2').value;
+            const platform = document.getElementById('platform2').value;
+            const pacing   = document.getElementById('pacing2').value;
+            const script   = document.getElementById('scriptInput').value;
 
-            const prompt = `Create a single, concise video prompt based on the attached reference image.
-Describe the visual scene in one continuous paragraph.
-Focus on the subject, action, lighting, and atmosphere matched from the image.
-The product is: “${productName}”.
-Include a short ${language} spoken line (max 100 chars) for the character.
-Do not use scene numbers, lists, or camera directions like "Scene 1". Just the visual description.`;
+            const prompt = `Create a single, concise UGC video prompt for a Thai social media advertisement.
+Product: "${productName}"
+Person action: ${action}
+Platform: ${platform}
+Pacing: ${pacing}
+Key message: ${script}
+
+Write one paragraph describing the video scene, camera style, and atmosphere.
+Style: UGC smartphone footage, natural Thai daylight, looks authentic like a real customer review for ${platform}.
+End with a CTA "สั่งซื้อได้เลย".
+Do NOT use scene numbers or bullet points.`;
 
             try {
                 let generatedText = "";
@@ -527,17 +786,12 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
                         },
                         body: JSON.stringify({
                             model: "gpt-4o-mini",
-                            messages: [
-                                {
-                                    role: "user",
-                                    content: prompt
-                                }
-                            ],
+                            messages: [{ role: "user", content: prompt }],
                             max_tokens: 300
                         })
                     });
                     const data = await response.json();
-                    if (data.choices && data.choices.length > 0) {
+                    if (data.choices?.length > 0) {
                         generatedText = data.choices[0].message.content.trim();
                     } else {
                         throw new Error("ChatGPT API Error: " + JSON.stringify(data));
@@ -545,19 +799,13 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
                 } else if (selectedModel === 'gemini') {
                     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${googleKey}`, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            contents: [{
-                                parts: [{
-                                    text: prompt
-                                }]
-                            }]
+                            contents: [{ parts: [{ text: prompt }] }]
                         })
                     });
                     const data = await response.json();
-                    if (data.candidates && data.candidates.length > 0 && data.candidates[0].content) {
+                    if (data.candidates?.length > 0 && data.candidates[0].content) {
                         generatedText = data.candidates[0].content.parts[0].text.trim();
                     } else {
                         throw new Error("Gemini API Error: " + JSON.stringify(data));
@@ -566,6 +814,7 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
 
                 if (generatedText) {
                     document.getElementById('scriptInput').value = generatedText;
+                    updateStep2Prompt();
                     saveFormData();
                 }
 
@@ -574,15 +823,93 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
                 alert("Error connecting to AI service: " + error.message);
             } finally {
                 analyzeBtn.innerHTML = '<span class="icon">✨</span> Generate Prompt';
-                analyzeBtn.disabled = false;
+                analyzeBtn.disabled  = false;
             }
         });
     });
 
+    // ── Generate Caption with AI (Step 3) ────────────────────────────────
+    document.getElementById('generateCaptionBtn').addEventListener('click', async () => {
+        const selectedModel = document.querySelector('input[name="flowModel"]:checked').value;
+        const genBtn = document.getElementById('generateCaptionBtn');
+
+        chrome.storage.local.get(['chatgptApiKey', 'googleApiKey'], async (result) => {
+            const chatgptKey = result.chatgptApiKey;
+            const googleKey  = result.googleApiKey;
+
+            if (selectedModel === 'chatgpt' && !chatgptKey) {
+                alert("Please enter ChatGPT API Key in Settings.");
+                settingsBtn.click();
+                return;
+            }
+            if (selectedModel === 'gemini' && !googleKey) {
+                alert("Please enter Google API Key in Settings.");
+                settingsBtn.click();
+                return;
+            }
+
+            genBtn.innerHTML = '<span class="icon">⏳</span> Generating...';
+            genBtn.disabled  = true;
+
+            const captionPrompt = buildStep3Prompt();
+
+            try {
+                let generatedText = "";
+
+                if (selectedModel === 'chatgpt') {
+                    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${chatgptKey}`
+                        },
+                        body: JSON.stringify({
+                            model: "gpt-4o-mini",
+                            messages: [{ role: "user", content: captionPrompt }],
+                            max_tokens: 400
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.choices?.length > 0) {
+                        generatedText = data.choices[0].message.content.trim();
+                    } else {
+                        throw new Error("ChatGPT API Error: " + JSON.stringify(data));
+                    }
+                } else if (selectedModel === 'gemini') {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${googleKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: captionPrompt }] }]
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.candidates?.length > 0 && data.candidates[0].content) {
+                        generatedText = data.candidates[0].content.parts[0].text.trim();
+                    } else {
+                        throw new Error("Gemini API Error: " + JSON.stringify(data));
+                    }
+                }
+
+                if (generatedText) {
+                    document.getElementById('captionInput').value = generatedText;
+                    saveFormData();
+                }
+
+            } catch (error) {
+                console.error("Caption AI Error:", error);
+                alert("Error generating caption: " + error.message);
+            } finally {
+                genBtn.innerHTML = '<span class="icon">🤖</span> Generate with AI';
+                genBtn.disabled  = false;
+            }
+        });
+    });
+
+    // ── Create Video Button ───────────────────────────────────────────────
     createBtn.addEventListener('click', async () => {
-        // Show automation overlay
         const automationOverlay = document.getElementById('automationOverlay');
-        const overlayStepText = document.getElementById('overlayStepText');
+        const overlayStepText   = document.getElementById('overlayStepText');
         if (automationOverlay) {
             if (overlayStepText) overlayStepText.innerText = 'กำลังเริ่มต้น...';
             automationOverlay.classList.remove('hidden');
@@ -593,27 +920,31 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
         cancelBtn.disabled = true;
         chrome.storage.local.set({ jobStatus: { running: true, step: 0, text: 'กำลังเริ่มต้น...' } });
 
-        // สลับไปหน้า Flow ให้ content script ทำงานได้
         await switchToFlow();
 
-        // Gather form data
+        // Copy step2 prompt preview into scriptInput before sending
+        const step2Prompt = document.getElementById('promptPreview2').value;
+        if (step2Prompt) {
+            document.getElementById('scriptInput').value = step2Prompt;
+        }
+
         const data = {
             productName: document.getElementById('productName').value,
-            ratio: document.getElementById('ratioSelect').value,
-            quantity: document.getElementById('quantitySelect').value,
-            veoModel: document.getElementById('veoModelSelect').value,
-            camera: document.querySelector('input[name="camera"]:checked').value,
-            script: document.getElementById('scriptInput').value,
-            imageData: null
+            ratio:       document.getElementById('ratioSelect').value,
+            quantity:    document.getElementById('quantitySelect').value,
+            veoModel:    document.getElementById('veoModelSelect').value,
+            camera:      'static',
+            script:      document.getElementById('scriptInput').value,
+            imageData:   null
         };
 
-        // Read image if selected, fallback to restored session image
+        // Read product image
         const file = productImageInput.files[0];
         if (file) {
             try {
                 data.imageData = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
-                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onload  = (e) => resolve(e.target.result);
                     reader.onerror = (e) => reject(e);
                     reader.readAsDataURL(file);
                 });
@@ -621,10 +952,9 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
                 console.error("Error reading image:", err);
             }
         } else if (imagePreview.src && !imagePreview.classList.contains('hidden')) {
-            data.imageData = imagePreview.src; // restored from session
+            data.imageData = imagePreview.src;
         }
 
-        // Send message to content script
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -643,16 +973,11 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
                 return;
             }
 
-            chrome.tabs.sendMessage(tab.id, {
-                action: "generateVideo",
-                data: data
-            }, (response) => {
+            chrome.tabs.sendMessage(tab.id, { action: "generateVideo", data }, (response) => {
                 if (chrome.runtime.lastError) {
                     console.error("Error sending message:", chrome.runtime.lastError);
                     statusText.innerText = "Error: Please refresh the Google Labs page";
                     alert("Connection failed. Please refresh the Google Labs page and try again.");
-
-                    // Reset buttons
                     createBtn.disabled = false;
                     cancelBtn.disabled = false;
                     statusBar.classList.add('hidden');
@@ -667,65 +992,87 @@ Do not use scene numbers, lists, or camera directions like "Scene 1". Just the v
             cancelBtn.disabled = false;
         }
 
-        // Progress bar — pulse ไปเรื่อยๆ จนกว่าจะได้รับ videoReady
         progressFill.style.transition = 'none';
         progressFill.style.width = '0%';
         progressFill.classList.add('pulse');
         statusText.innerText = "กำลังสร้างวิดีโอ.. รอสักครู่";
     });
 
-    cancelBtn.addEventListener('click', () => {
-        console.log("Cancelled");
+    // ── SORA Image Upload ─────────────────────────────────────────────────
+    const soraImageUploadArea  = document.getElementById('soraImageUploadArea');
+    const soraImageInput       = document.getElementById('soraImageInput');
+    const soraImagePreview     = document.getElementById('soraImagePreview');
+    const soraUploadPlaceholder = document.getElementById('soraUploadPlaceholder');
+    const soraRemoveImageBtn   = document.getElementById('soraRemoveImageBtn');
+
+    soraImageUploadArea.addEventListener('click', (e) => {
+        if (e.target !== soraRemoveImageBtn && !soraRemoveImageBtn.contains(e.target)) {
+            soraImageInput.click();
+        }
     });
 
-    // ── Overlay Cancel Button ────────────────────────────────────────────────
-    document.getElementById('overlayCancelBtn').addEventListener('click', cancelAutomation);
+    soraImageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                soraImagePreview.src = ev.target.result;
+                soraImagePreview.classList.remove('hidden');
+                soraUploadPlaceholder.classList.add('hidden');
+                soraRemoveImageBtn.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+    });
 
-    // --- SORA LOGIC ---
+    soraRemoveImageBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        soraImageInput.value = '';
+        soraImagePreview.src = '';
+        soraImagePreview.classList.add('hidden');
+        soraUploadPlaceholder.classList.remove('hidden');
+        soraRemoveImageBtn.classList.add('hidden');
+    });
+
+    // ── SORA Logic ────────────────────────────────────────────────────────
     const soraGeneratePromptBtn = document.getElementById('soraGeneratePromptBtn');
-    const soraGenerateBtn = document.getElementById('soraGenerateBtn');
+    const soraGenerateBtn       = document.getElementById('soraGenerateBtn');
 
     soraGeneratePromptBtn.addEventListener('click', async () => {
-        const character = document.getElementById('soraCharacter').value.trim();
-        const decide = document.getElementById('soraDecide').value.trim();
-        const style = document.getElementById('soraStyle').value;
-        const ratio = document.getElementById('soraRatio').value;
+        const character     = document.getElementById('soraCharacter').value.trim();
+        const decide        = document.getElementById('soraDecide').value.trim();
+        const style         = document.getElementById('soraStyle').value;
+        const ratio         = document.getElementById('soraRatio').value;
         const selectedModel = document.querySelector('input[name="soraModel"]:checked').value;
-
-        const language = document.getElementById('soraLanguageSelect').value;
+        const language      = document.getElementById('soraLanguageSelect').value;
 
         soraGeneratePromptBtn.innerText = 'Generating...';
-        soraGeneratePromptBtn.disabled = true;
+        soraGeneratePromptBtn.disabled  = true;
 
-        // Construct Prompt
-        let systemPrompt = "You are an expert video prompt engineer.";
+        const systemPrompt = "You are an expert video prompt engineer.";
         let userPrompt = `Generate a single, continuous paragraph describing a video based on these details:
 Style: ${style}
 Ratio: ${ratio}
 Decide/Description: ${decide}
 Spoken Language: ${language}
 `;
-        if (character) {
-            userPrompt += `Character: ${character}\n`;
-        }
-
+        if (character) userPrompt += `Character: ${character}\n`;
         userPrompt += "\nOutput ONLY the prompt description. Do not use 'Scene 1', 'Cut to', or bullet points. Keep it simple and direct.";
 
-        // API Call
         chrome.storage.local.get(['chatgptApiKey', 'googleApiKey'], async (result) => {
             const chatgptKey = result.chatgptApiKey;
-            const googleKey = result.googleApiKey;
+            const googleKey  = result.googleApiKey;
 
             if (selectedModel === 'chatgpt' && !chatgptKey) {
                 alert("Please set your ChatGPT API Key in settings.");
                 soraGeneratePromptBtn.innerText = 'Generate Prompt';
-                soraGeneratePromptBtn.disabled = false;
+                soraGeneratePromptBtn.disabled  = false;
                 return;
             }
             if (selectedModel === 'gemini' && !googleKey) {
                 alert("Please set your Google API Key in settings.");
                 soraGeneratePromptBtn.innerText = 'Generate Prompt';
-                soraGeneratePromptBtn.disabled = false;
+                soraGeneratePromptBtn.disabled  = false;
                 return;
             }
 
@@ -735,50 +1082,29 @@ Spoken Language: ${language}
                 if (selectedModel === 'chatgpt') {
                     const response = await fetch('https://api.openai.com/v1/chat/completions', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${chatgptKey}`
-                        },
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${chatgptKey}` },
                         body: JSON.stringify({
                             model: "gpt-4o-mini",
-                            messages: [
-                                { role: "system", content: systemPrompt },
-                                { role: "user", content: userPrompt }
-                            ],
+                            messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
                             max_tokens: 300
                         })
                     });
                     const data = await response.json();
-                    if (data.choices && data.choices.length > 0) {
-                        generatedText = data.choices[0].message.content.trim();
-                    } else {
-                        throw new Error("ChatGPT Error: " + JSON.stringify(data));
-                    }
+                    if (data.choices?.length > 0) generatedText = data.choices[0].message.content.trim();
+                    else throw new Error("ChatGPT Error: " + JSON.stringify(data));
+
                 } else if (selectedModel === 'gemini') {
                     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${googleKey}`, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [{
-                                    text: systemPrompt + "\n\n" + userPrompt
-                                }]
-                            }]
-                        })
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }] })
                     });
                     const data = await response.json();
-                    if (data.candidates && data.candidates.length > 0 && data.candidates[0].content) {
-                        generatedText = data.candidates[0].content.parts[0].text.trim();
-                    } else {
-                        throw new Error("Gemini Error: " + JSON.stringify(data));
-                    }
+                    if (data.candidates?.length > 0 && data.candidates[0].content) generatedText = data.candidates[0].content.parts[0].text.trim();
+                    else throw new Error("Gemini Error: " + JSON.stringify(data));
                 }
 
-                if (generatedText) {
-                    document.getElementById('soraPromptInput').value = generatedText;
-                }
+                if (generatedText) document.getElementById('soraPromptInput').value = generatedText;
 
             } catch (error) {
                 console.error(error);
@@ -786,19 +1112,21 @@ Spoken Language: ${language}
             }
 
             soraGeneratePromptBtn.innerText = 'Generate Prompt';
-            soraGeneratePromptBtn.disabled = false;
+            soraGeneratePromptBtn.disabled  = false;
         });
     });
 
     soraGenerateBtn.addEventListener('click', () => {
-        // Logic to send prompt to SORA web via content script (placeholder for now as user only requested UI + Prompt Gen)
-        console.log("SORA Generate Clicked");
         const prompt = document.getElementById('soraPromptInput').value;
         if (prompt) {
-            // Copy to clipboard or auto-fill if we had the content script logic
             navigator.clipboard.writeText(prompt).then(() => {
                 alert("Prompt copied to clipboard!");
             });
         }
     });
+
+    // Initial prompt render
+    updateStep1Prompt();
+    updateStep2Prompt();
+    updateStep3Prompt();
 });

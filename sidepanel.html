@@ -40,45 +40,219 @@
 
     <!-- FLOW UI SECTION -->
     <div id="flowUI">
-      <div class="section product-image-section">
-        <label class="section-label">Reference Image <span class="required">*</span></label>
-        <label class="image-upload-area" id="imageUploadArea" for="productImageInput">
-          <input type="file" id="productImageInput" accept="image/*" style="display:none">
-          <div class="upload-placeholder" id="uploadPlaceholder">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 5V19M5 12H19" stroke="#64748B" stroke-width="2" stroke-linecap="round" />
-            </svg>
-          </div>
-          <img id="imagePreview" class="image-preview hidden" src="" alt="Product Preview">
-          <button class="remove-image-btn hidden" id="removeImageBtn" type="button">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </label>
-      </div>
 
-      <div class="form-grid">
+      <!-- Global Inputs -->
+      <div class="global-inputs">
+        <div class="global-images-row">
+          <div class="global-image-field">
+            <label class="section-label">Face Reference</label>
+            <label class="image-upload-area image-upload-sm" id="faceUploadArea" for="faceImageInput">
+              <input type="file" id="faceImageInput" accept="image/*" style="display:none">
+              <div class="upload-placeholder" id="faceUploadPlaceholder">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 5V19M5 12H19" stroke="#64748B" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Face</span>
+              </div>
+              <img id="faceImagePreview" class="image-preview hidden" src="" alt="Face Reference">
+              <button class="remove-image-btn hidden" id="removeFaceImageBtn" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </label>
+          </div>
+
+          <div class="global-image-field">
+            <label class="section-label">Product Image</label>
+            <label class="image-upload-area image-upload-sm" id="imageUploadArea" for="productImageInput">
+              <input type="file" id="productImageInput" accept="image/*" style="display:none">
+              <div class="upload-placeholder" id="uploadPlaceholder">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 5V19M5 12H19" stroke="#64748B" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>Product</span>
+              </div>
+              <img id="imagePreview" class="image-preview hidden" src="" alt="Product Preview">
+              <button class="remove-image-btn hidden" id="removeImageBtn" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </label>
+          </div>
+        </div>
+
         <div class="form-group">
           <label>Product Name</label>
           <input type="text" id="productName" placeholder="Optional">
         </div>
+      </div>
+
+      <!-- Step Indicator -->
+      <div class="step-indicator">
+        <button class="step-btn active" data-step="1" id="stepBtn1">
+          <span class="step-num">1</span>
+          <span class="step-label">รูปภาพ</span>
+        </button>
+        <div class="step-connector"></div>
+        <button class="step-btn" data-step="2" id="stepBtn2">
+          <span class="step-num">2</span>
+          <span class="step-label">วิดีโอ</span>
+        </button>
+        <div class="step-connector"></div>
+        <button class="step-btn" data-step="3" id="stepBtn3">
+          <span class="step-num">3</span>
+          <span class="step-label">Caption</span>
+        </button>
+      </div>
+
+      <!-- Step 1: Image Generation -->
+      <div class="step-panel active" id="stepPanel1">
+        <div class="form-group">
+          <label>GENDER</label>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="gender1" value="male" checked>
+              <span class="radio-label"><span class="radio-dot"></span>ผู้ชาย</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="gender1" value="female">
+              <span class="radio-label"><span class="radio-dot"></span>ผู้หญิง</span>
+            </label>
+          </div>
+        </div>
 
         <div class="form-group">
-          <label>Video Ratio</label>
-          <select id="ratioSelect">
-            <option value="9:16">Portrait 9:16</option>
-            <option value="16:9">Landscape 16:9</option>
+          <label>ACTION</label>
+          <select id="action1">
+            <option value="holding">holding</option>
+            <option value="pointing at">pointing at</option>
+            <option value="installing">installing</option>
+            <option value="unboxing">unboxing</option>
+            <option value="standing next to">standing next to</option>
+            <option value="demonstrating">demonstrating</option>
           </select>
         </div>
+
         <div class="form-group">
-          <label>Quantity</label>
-          <select id="quantitySelect">
-            <option value="4">4 Clips</option>
-            <option value="2">2 Clips</option>
-            <option value="1">1 Clip</option>
+          <label>LOCATION</label>
+          <select id="location1">
+            <option value="หน้าบ้านชนบทไทย">หน้าบ้านชนบทไทย</option>
+            <option value="ห้องนั่งเล่น">ห้องนั่งเล่น</option>
+            <option value="ร้านค้า">ร้านค้า</option>
+            <option value="สวนหลังบ้าน">สวนหลังบ้าน</option>
+            <option value="หน้าโรงงาน">หน้าโรงงาน</option>
+            <option value="ริมถนนหมู่บ้าน">ริมถนนหมู่บ้าน</option>
+            <option value="ดาดฟ้า">ดาดฟ้า</option>
           </select>
         </div>
+
+        <div class="form-group">
+          <label>OUTFIT</label>
+          <select id="outfit1">
+            <option value="เสื้อยืดคอกลมกับกางเกงขาสั้น">เสื้อยืดคอกลมกับกางเกงขาสั้น</option>
+            <option value="ชุดช่าง">ชุดช่าง</option>
+            <option value="เสื้อเชิ้ตลำลอง">เสื้อเชิ้ตลำลอง</option>
+            <option value="ชุดแม่บ้าน">ชุดแม่บ้าน</option>
+            <option value="เสื้อโปโลกับกางเกงขายาว">เสื้อโปโลกับกางเกงขายาว</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>MOOD</label>
+          <select id="mood1">
+            <option value="ยิ้มภูมิใจแบบธรรมชาติ">ยิ้มภูมิใจแบบธรรมชาติ</option>
+            <option value="กำลังอธิบายอย่างตั้งใจ">กำลังอธิบายอย่างตั้งใจ</option>
+            <option value="ยิ้มแบบพอใจหลังติดตั้งเสร็จ">ยิ้มแบบพอใจหลังติดตั้งเสร็จ</option>
+            <option value="ตื่นเต้นตอนแกะกล่อง">ตื่นเต้นตอนแกะกล่อง</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Prompt Preview</label>
+          <textarea id="promptPreview1" class="prompt-preview" rows="10" readonly placeholder="Prompt จะแสดงที่นี่..."></textarea>
+        </div>
+
+        <div class="actions">
+          <button id="copyPrompt1Btn" class="btn btn-secondary">
+            <span class="icon">📋</span> Copy Prompt
+          </button>
+          <button id="goStep2Btn" class="btn btn-primary">
+            ไปขั้นตอน 2 →
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Video Generation -->
+      <div class="step-panel" id="stepPanel2">
+
+        <div class="form-group">
+          <label>GENDER</label>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="gender2" value="male" checked>
+              <span class="radio-label"><span class="radio-dot"></span>ผู้ชาย</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="gender2" value="female">
+              <span class="radio-label"><span class="radio-dot"></span>ผู้หญิง</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>ACTION</label>
+          <select id="action2">
+            <option value="รีวิวสินค้าต่อหน้ากล้อง">รีวิวสินค้าต่อหน้ากล้อง</option>
+            <option value="สาธิตการใช้งาน">สาธิตการใช้งาน</option>
+            <option value="แกะกล่องสด">แกะกล่องสด</option>
+            <option value="ติดตั้งสินค้า">ติดตั้งสินค้า</option>
+            <option value="เปรียบเทียบก่อน-หลัง">เปรียบเทียบก่อน-หลัง</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Script / Key Message</label>
+          <textarea id="scriptInput" rows="4" placeholder="Enter script here..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>PLATFORM</label>
+          <select id="platform2">
+            <option value="TikTok">TikTok</option>
+            <option value="Reels">Reels</option>
+            <option value="Facebook">Facebook</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>PACING</label>
+          <select id="pacing2">
+            <option value="ตัดเร็วฉับๆ แบบ TikTok">ตัดเร็วฉับๆ แบบ TikTok</option>
+            <option value="ช้าๆ อธิบายละเอียด">ช้าๆ อธิบายละเอียด</option>
+            <option value="ผสมทั้งสองแบบ">ผสมทั้งสองแบบ</option>
+          </select>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Video Ratio</label>
+            <select id="ratioSelect">
+              <option value="9:16">Portrait 9:16</option>
+              <option value="16:9">Landscape 16:9</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Quantity</label>
+            <select id="quantitySelect">
+              <option value="4">4 Clips</option>
+              <option value="2">2 Clips</option>
+              <option value="1">1 Clip</option>
+            </select>
+          </div>
+        </div>
+
         <div class="form-group">
           <label>Veo Model</label>
           <select id="veoModelSelect">
@@ -86,92 +260,123 @@
             <option value="Veo 3.1 - Quality">Veo 3.1 - Quality</option>
           </select>
         </div>
-      </div>
 
-      <div class="form-group">
-        <label>Camera Angle</label>
-        <div class="radio-group">
-          <label class="radio-option">
-            <input type="radio" name="camera" value="static" checked>
-            <span class="radio-label"><span class="radio-dot"></span>Static</span>
-          </label>
-          <label class="radio-option">
-            <input type="radio" name="camera" value="dynamic">
-            <span class="radio-label"><span class="radio-dot"></span>Dynamic</span>
-          </label>
+        <div class="form-group">
+          <label>AI Model</label>
+          <div class="radio-group model-selector">
+            <label class="radio-option">
+              <input type="radio" name="flowModel" value="chatgpt" checked>
+              <span class="radio-label"><span class="radio-dot"></span>ChatGPT</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="flowModel" value="gemini">
+              <span class="radio-label"><span class="radio-dot"></span>Gemini</span>
+            </label>
+          </div>
         </div>
-      </div>
 
-      <div class="form-group">
-        <label>Script</label>
-        <textarea id="scriptInput" rows="4" placeholder="Enter script here..."></textarea>
-      </div>
+        <!-- Hidden fields for content script compatibility -->
+        <input type="hidden" id="languageSelect" value="Thai">
+        <input type="hidden" id="cameraAngle" value="static">
 
-      <div class="form-group">
-        <label>TikTok Caption</label>
-        <textarea id="captionInput" rows="3" placeholder="Caption สำหรับ TikTok..."></textarea>
-      </div>
-
-      <div class="form-group">
-        <label>TikTok Product ID</label>
-        <input type="text" id="productIdInput" placeholder="e.g. 1234567890123456789">
-      </div>
-
-      <div class="form-group">
-        <label>Spoken Language</label>
-        <select id="languageSelect">
-          <option value="Thai">Thai</option>
-          <option value="English">English</option>
-          <option value="Japanese">Japanese</option>
-          <option value="Chinese">Chinese</option>
-          <option value="Korean">Korean</option>
-          <option value="Spanish">Spanish</option>
-          <option value="French">French</option>
-          <option value="German">German</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label>AI Model</label>
-        <div class="radio-group model-selector">
-          <label class="radio-option">
-            <input type="radio" name="flowModel" value="chatgpt" checked>
-            <span class="radio-label"><span class="radio-dot"></span>ChatGPT</span>
-          </label>
-          <label class="radio-option">
-            <input type="radio" name="flowModel" value="gemini">
-            <span class="radio-label"><span class="radio-dot"></span>Gemini</span>
-          </label>
+        <div class="form-group">
+          <label>Prompt Preview</label>
+          <textarea id="promptPreview2" class="prompt-preview" rows="8" readonly placeholder="Prompt จะแสดงที่นี่..."></textarea>
         </div>
-      </div>
 
-      <div class="actions">
-        <button id="analyzeBtn" class="btn btn-secondary">
-          <span class="icon">✨</span> Generate Prompt
-        </button>
+        <div class="actions">
+          <button id="analyzeBtn" class="btn btn-secondary">
+            <span class="icon">✨</span> Generate Prompt
+          </button>
 
-        <div class="action-row">
-          <button id="cancelBtn" class="btn btn-ghost">Cancel</button>
-          <button id="createBtn" class="btn btn-primary">
-            <span class="icon">✨</span> Create Video
+          <div class="action-row">
+            <button id="cancelBtn" class="btn btn-ghost">Cancel</button>
+            <button id="createBtn" class="btn btn-primary">
+              <span class="icon">🎬</span> Create Video
+            </button>
+          </div>
+
+          <button id="testDownloadBtn" class="btn btn-ghost" style="display:none;">
+            🧪 Test Download
+          </button>
+          <button id="testUploadBtn" class="btn btn-ghost" style="display:none;">
+            📤 Test Upload
           </button>
         </div>
-
-        <button id="testDownloadBtn" class="btn btn-ghost">
-          🧪 Test Download
-        </button>
-        <button id="testUploadBtn" class="btn btn-ghost" style="display:none;">
-          📤 Test Upload
-        </button>
-
-        <button id="tiktokBtn" class="btn btn-tiktok">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.76a4.85 4.85 0 0 1-1.01-.07z"/>
-          </svg>
-          Open TikTok Studio
-        </button>
       </div>
+
+      <!-- Step 3: Caption Generation -->
+      <div class="step-panel" id="stepPanel3">
+        <div class="form-group">
+          <label>PLATFORM</label>
+          <select id="platform3">
+            <option value="TikTok">TikTok</option>
+            <option value="Facebook">Facebook</option>
+            <option value="Instagram">Instagram</option>
+            <option value="Shopee">Shopee</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Script / Key Message</label>
+          <textarea id="captionScript" rows="3" placeholder="Key message จาก Step 2..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>TARGET AUDIENCE</label>
+          <select id="audience3">
+            <option value="คนมีบ้าน">คนมีบ้าน</option>
+            <option value="ช่างไฟ">ช่างไฟ</option>
+            <option value="แม่บ้าน">แม่บ้าน</option>
+            <option value="คนรักสวน">คนรักสวน</option>
+            <option value="เจ้าของร้าน">เจ้าของร้าน</option>
+            <option value="คนทั่วไป">คนทั่วไป</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>HOOK STYLE</label>
+          <select id="hookStyle3">
+            <option value="คำถาม">คำถาม</option>
+            <option value="ความขัดแย้ง">ความขัดแย้ง</option>
+            <option value="ตัวเลขน่าตกใจ">ตัวเลขน่าตกใจ</option>
+            <option value="เรื่องเล่าสั้น">เรื่องเล่าสั้น</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Caption Prompt Preview</label>
+          <textarea id="promptPreview3" class="prompt-preview" rows="8" readonly placeholder="Caption prompt จะแสดงที่นี่..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>TikTok Caption</label>
+          <textarea id="captionInput" rows="3" placeholder="Caption สำหรับ TikTok..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>TikTok Product ID</label>
+          <input type="text" id="productIdInput" placeholder="e.g. 1234567890123456789">
+        </div>
+
+        <div class="actions">
+          <button id="copyCaptionPromptBtn" class="btn btn-secondary">
+            <span class="icon">📋</span> Copy Caption Prompt
+          </button>
+          <button id="generateCaptionBtn" class="btn btn-primary" style="margin-bottom: 8px;">
+            <span class="icon">🤖</span> Generate with AI
+          </button>
+          <button id="tiktokBtn" class="btn btn-tiktok">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.76a4.85 4.85 0 0 1-1.01-.07z"/>
+            </svg>
+            Open TikTok Studio
+          </button>
+        </div>
+      </div>
+
     </div>
+    <!-- /flowUI -->
 
     <!-- SORA UI SECTION -->
     <div id="soraUI" class="hidden">
@@ -180,7 +385,6 @@
         <div class="image-upload-area" id="soraImageUploadArea">
           <input type="file" id="soraImageInput" accept="image/*" hidden>
           <div class="upload-placeholder" id="soraUploadPlaceholder">
-            <!-- Placeholder -->
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 5V19M5 12H19" stroke="#64748B" stroke-width="2" stroke-linecap="round" />
             </svg>
@@ -332,11 +536,8 @@
     </div>
   </div>
   <script>
-    // ถ้าเปิดเป็น popup (ไม่ใช่ side panel) หรือบน mobile → ใส่ class popup-mode
-    // รองรับ Orion และ browser ที่อาจไม่มี getPlatformInfo
     try {
       if (!chrome.sidePanel) {
-        // ไม่มี sidePanel API (Orion, Firefox Android, ฯลฯ) → popup mode
         document.body.classList.add('popup-mode');
       } else {
         chrome.runtime.getPlatformInfo(({ os }) => {
