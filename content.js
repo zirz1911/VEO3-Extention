@@ -172,9 +172,17 @@ async function handleImageGeneration(data) {
         sendProgress(9, 'กด Generate...');
         await clickGenerateButton();
 
+        // Step 10: รอรูปสร้างเสร็จ
+        sendProgress(10, 'รอรูปสร้างเสร็จ...');
+        await waitForImageReady();
+
+        // Step 11: ดาวน์โหลดรูป 2K
+        sendProgress(11, 'กำลังดาวน์โหลดรูป...');
+        await downloadLatestImage();
+
         removeFlowOverlay();
-        safeSendMessage({ action: 'progress', text: 'กำลังสร้างรูปภาพ...' });
-        console.log('✅ Image generation started');
+        safeSendMessage({ action: 'imageReady' });
+        console.log('✅ Image download complete');
 
     } catch (error) {
         console.error('❌ Image generation error:', error);
@@ -532,6 +540,90 @@ async function clickGenerateButton() {
         btn.focus();
         break;
     }
+}
+
+// ── รอรูปภาพสร้างเสร็จ ────────────────────────────────────────────────────────
+async function waitForImageReady() {
+    console.log('⏳ Waiting for image generation to complete...');
+    const MAX_WAIT_MS = 3 * 60 * 1000; // 3 นาที
+    const start = Date.now();
+
+    // จำจำนวน image tile ก่อน generate
+    const countBefore = document.querySelectorAll('.sc-5923b123-0[data-tile-id]').length;
+
+    await new Promise((resolve) => {
+        const observer = new MutationObserver(() => {
+            const countNow = document.querySelectorAll('.sc-5923b123-0[data-tile-id]').length;
+            if (countNow > countBefore) {
+                console.log(`✅ New image tile detected (${countBefore} → ${countNow})`);
+                observer.disconnect();
+                resolve();
+                return;
+            }
+            if (Date.now() - start > MAX_WAIT_MS) {
+                console.warn('⚠️ Timeout waiting for image');
+                observer.disconnect();
+                resolve();
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    });
+
+    await new Promise(r => setTimeout(r, 800));
+}
+
+// ── ดาวน์โหลดรูปภาพล่าสุด (คลิก tile → download → 2K) ───────────────────────
+async function downloadLatestImage() {
+    console.log('Step 11: Downloading latest image...');
+
+    // หา image tile แรกใน virtuoso list
+    let imageTile = null;
+    for (let i = 0; i < 20; i++) {
+        const firstRow = document.querySelector('[data-index="0"]');
+        if (firstRow) imageTile = firstRow.querySelector('.sc-5923b123-0[data-tile-id]');
+        if (!imageTile) imageTile = document.querySelector('.sc-5923b123-0[data-tile-id]');
+        if (imageTile) break;
+        await new Promise(r => setTimeout(r, 500));
+    }
+    if (!imageTile) { console.warn('⚠️ No image tile found'); return; }
+    console.log('✅ Found image tile:', imageTile.dataset.tileId);
+
+    // คลิก <a> link ข้างใน เพื่อเปิดรูป
+    imageTile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await new Promise(r => setTimeout(r, 400));
+    const link = imageTile.querySelector('a') || imageTile;
+    robustClick(link);
+    console.log('✅ Clicked image tile to open');
+    await new Promise(r => setTimeout(r, 1000));
+
+    // รอปุ่ม Download (icon "download")
+    let downloadBtn = null;
+    for (let i = 0; i < 20; i++) {
+        downloadBtn = xpathFind(`//button[@aria-haspopup='menu'][.//i[normalize-space(text())='download']]`);
+        if (downloadBtn) break;
+        await new Promise(r => setTimeout(r, 300));
+    }
+    if (!downloadBtn) { console.warn('⚠️ Download button not found'); return; }
+    robustClick(downloadBtn);
+    console.log('✅ Clicked download button');
+    await new Promise(r => setTimeout(r, 600));
+
+    // เลือก 2K
+    let btn2k = null;
+    for (let i = 0; i < 20; i++) {
+        btn2k = Array.from(document.querySelectorAll('[role="menuitem"]'))
+            .find(el => el.textContent.includes('2K'));
+        if (btn2k) break;
+        await new Promise(r => setTimeout(r, 200));
+    }
+    if (!btn2k) {
+        console.warn('⚠️ 2K option not found');
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        return;
+    }
+    btn2k.click();
+    console.log('✅ Clicked 2K — image download started');
+    await new Promise(r => setTimeout(r, 1000));
 }
 
 // ── Step 6: รอวิดีโอสร้างเสร็จ ────────────────────────────────────────────────
