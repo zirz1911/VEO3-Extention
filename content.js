@@ -19,6 +19,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         handleGeneration(request.data);
         sendResponse({ status: "started" });
     }
+    if (request.action === "testImageGen") {
+        console.log("🧪 Test Image Gen triggered, prompt:", request.prompt?.substring(0, 60));
+        _jobCancelled = false;
+        handleImageGeneration({ prompt: request.prompt });
+        sendResponse({ status: "started" });
+    }
     if (request.action === "testDownload") {
         console.log("🧪 Test Download triggered");
         downloadLatestVideo().then(() => {
@@ -33,6 +39,103 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({ status: "cancelled" });
     }
 });
+
+// ── Image Generation Pipeline ─────────────────────────────────────────────────
+async function handleImageGeneration(data) {
+    showFlowOverlay();
+    try {
+        // Step 1: เปิด dropdown settings
+        sendProgress(1, 'กำลังเปิดเมนู...');
+        const triggerBtn = document.querySelector('button.sc-46973129-1');
+        if (!triggerBtn) throw new Error('Settings trigger button not found');
+        humanClick(triggerBtn);
+        await new Promise(r => setTimeout(r, 700));
+
+        // Step 2: เลือก "รูปภาพ" (IMAGE tab)
+        sendProgress(2, 'เลือกประเภทรูปภาพ...');
+        let imageTab = null;
+        for (let i = 0; i < 20; i++) {
+            imageTab = document.querySelector('button[aria-controls$="-content-IMAGE"]');
+            if (imageTab) break;
+            await new Promise(r => setTimeout(r, 200));
+        }
+        if (!imageTab) throw new Error('IMAGE tab not found');
+        humanClick(imageTab);
+        console.log('✅ Selected IMAGE tab');
+        await new Promise(r => setTimeout(r, 300));
+
+        // Step 3: เลือก "แนวตั้ง" (PORTRAIT tab)
+        sendProgress(3, 'เลือกแนวตั้ง...');
+        const portraitTab = document.querySelector('button[aria-controls$="-content-PORTRAIT"]');
+        if (portraitTab) {
+            humanClick(portraitTab);
+            console.log('✅ Selected PORTRAIT tab');
+        } else {
+            console.warn('⚠️ PORTRAIT tab not found');
+        }
+        await new Promise(r => setTimeout(r, 300));
+
+        // Step 4: เลือก x1
+        sendProgress(4, 'เลือก x1...');
+        const x1Tab = Array.from(document.querySelectorAll('button[role="tab"]'))
+            .find(b => b.textContent.trim() === 'x1');
+        if (x1Tab) {
+            humanClick(x1Tab);
+            console.log('✅ Selected x1');
+        } else {
+            console.warn('⚠️ x1 tab not found');
+        }
+        await new Promise(r => setTimeout(r, 300));
+
+        // Step 5: เปิด model dropdown (ปุ่ม arrow_drop_down ภายใน panel)
+        sendProgress(5, 'เลือกโมเดล...');
+        const modelDropBtn = xpathFind(
+            '//button[@aria-haspopup="menu"][.//i[normalize-space(text())="arrow_drop_down"]]'
+        );
+        if (modelDropBtn) {
+            humanClick(modelDropBtn);
+            console.log('✅ Clicked model dropdown');
+            await new Promise(r => setTimeout(r, 500));
+
+            // Step 6: เลือก model item แรก จาก menuitem
+            const menuItem = document.querySelector('div[role="menuitem"] button');
+            if (menuItem) {
+                humanClick(menuItem);
+                console.log('✅ Selected model:', menuItem.textContent.trim().substring(0, 40));
+            } else {
+                console.warn('⚠️ Model menu item not found');
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            }
+            await new Promise(r => setTimeout(r, 400));
+        } else {
+            console.warn('⚠️ Model dropdown button not found');
+        }
+
+        // ปิด settings dropdown
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await new Promise(r => setTimeout(r, 500));
+
+        // Step 7: ใส่ Prompt
+        if (data.prompt) {
+            sendProgress(6, 'ใส่ Prompt...');
+            await setPromptSlate(data.prompt);
+            await new Promise(r => setTimeout(r, 500));
+        }
+
+        // Step 8: กด Generate
+        sendProgress(7, 'กด Generate...');
+        await clickGenerateButton();
+
+        removeFlowOverlay();
+        safeSendMessage({ action: 'progress', text: 'กำลังสร้างรูปภาพ...' });
+        console.log('✅ Image generation started');
+
+    } catch (error) {
+        console.error('❌ Image generation error:', error);
+        removeFlowOverlay();
+        safeSendMessage({ action: 'videoError', error: error.message });
+    }
+}
 
 async function handleGeneration(data) {
     showFlowOverlay();
