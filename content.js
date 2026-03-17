@@ -136,14 +136,29 @@ async function handleImageGeneration(data) {
         if (data.faceImageData) {
             sendProgress(7, 'อัปโหลด Face Reference...');
             await clickUploadImage(data.faceImageData);
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise(r => setTimeout(r, 800));
         }
 
-        // Step 7.5: อัปโหลด Product Image
+        // Step 7.5: กด + อีกครั้งเพื่อเปิด dialog สำหรับรูปที่ 2
         if (data.productImageData) {
-            sendProgress(7.5, 'อัปโหลด Product Image...');
+            sendProgress(7.5, 'เปิด dialog สำหรับ Product Image...');
+            console.log('🔍 Looking for + button (2nd time)...');
+            let addBtn2 = null;
+            for (let i = 0; i < 20; i++) {
+                // ลอง selector หลายแบบ เผื่อ aria-haspopup เปลี่ยนหลัง upload แรก
+                addBtn2 = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]]')
+                    || xpathFind('//button[.//i[normalize-space(text())="add_2"]]');
+                if (addBtn2) { console.log(`✅ Found + button on try ${i+1}`); break; }
+                await new Promise(r => setTimeout(r, 300));
+            }
+            if (!addBtn2) throw new Error('+ (add_2) button not found for 2nd upload');
+            robustClick(addBtn2);
+            console.log('✅ robustClick + button (2nd time)');
+            await new Promise(r => setTimeout(r, 700));
+
+            sendProgress(7.6, 'อัปโหลด Product Image...');
             await clickUploadImage(data.productImageData);
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise(r => setTimeout(r, 800));
         }
 
         // Step 8: ใส่ Prompt
