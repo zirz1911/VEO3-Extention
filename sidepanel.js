@@ -143,7 +143,7 @@ Photo looks like a genuine Shopee or TikTok customer review image.
 
 --- STRICT RULES ---
 - The product in the image MUST match the attached product photo exactly
-  in shape, color, size, and detail. Do NOT alter, redesign, or add extra parts.
+  in shape, color, size, and detail. Do NOT alter, redesign, or add extra parts to the product.
 - Background must contain ONLY objects that naturally belong in ${location}.
   Do NOT generate random or unrelated props.
 - Do NOT add any object that is not explicitly described in this prompt.
@@ -166,9 +166,10 @@ function buildStep2Prompt() {
     const platform   = document.getElementById('platform2')?.value || 'TikTok';
     const pacing     = document.getElementById('pacing2')?.value || '';
 
-    return `A ${genderWord} Thai person is ${action} the ${product}.
+    return `A ${genderWord} Thai person,
+is ${action} the ${product}.
 
-Location: สุ่มตามประเภทสินค้า
+Location: สุ่มตามประเภทตามสินค้า
 
 Script/Key Message: ${script}
 
@@ -197,7 +198,7 @@ Target Audience: ${audience}
 
 --- OUTPUT FORMAT ---
 
-Write 1 caption variation:
+Write 1 caption variations:
 
 **Version A - Short (TikTok/Reels):**
 - 2-3 lines max
