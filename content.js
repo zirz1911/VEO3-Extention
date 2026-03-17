@@ -119,22 +119,8 @@ async function handleImageGeneration(data) {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         await new Promise(r => setTimeout(r, 600));
 
-        // Step 6: อัปโหลด Face Reference
-        if (data.faceImageData) {
-            sendProgress(6, 'อัปโหลด Face Reference...');
-            await clickUploadImage(data.faceImageData);
-            await new Promise(r => setTimeout(r, 1000));
-        }
-
-        // Step 6.5: อัปโหลด Product Image
-        if (data.productImageData) {
-            sendProgress(6.5, 'อัปโหลด Product Image...');
-            await clickUploadImage(data.productImageData);
-            await new Promise(r => setTimeout(r, 1000));
-        }
-
-        // Step 7: กดปุ่ม + (add_2) เพื่อเปิด prompt input
-        sendProgress(7, 'กดปุ่ม + เพื่อเปิด Prompt...');
+        // Step 6: กดปุ่ม + (add_2) ก่อน เพื่อเปิด prompt/upload area
+        sendProgress(6, 'กดปุ่ม + เพื่อเปิด input area...');
         let addBtn = null;
         for (let i = 0; i < 20; i++) {
             addBtn = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]]');
@@ -144,17 +130,31 @@ async function handleImageGeneration(data) {
         if (!addBtn) throw new Error('+ (add_2) button not found');
         humanClick(addBtn);
         console.log('✅ Clicked + button');
-        await new Promise(r => setTimeout(r, 600));
+        await new Promise(r => setTimeout(r, 700));
 
-        // Step 7.5: ใส่ Prompt
+        // Step 7: อัปโหลด Face Reference
+        if (data.faceImageData) {
+            sendProgress(7, 'อัปโหลด Face Reference...');
+            await clickUploadImage(data.faceImageData);
+            await new Promise(r => setTimeout(r, 1000));
+        }
+
+        // Step 7.5: อัปโหลด Product Image
+        if (data.productImageData) {
+            sendProgress(7.5, 'อัปโหลด Product Image...');
+            await clickUploadImage(data.productImageData);
+            await new Promise(r => setTimeout(r, 1000));
+        }
+
+        // Step 8: ใส่ Prompt
         if (data.prompt) {
-            sendProgress(7.5, 'ใส่ Prompt...');
+            sendProgress(8, 'ใส่ Prompt...');
             await setPromptSlate(data.prompt);
             await new Promise(r => setTimeout(r, 500));
         }
 
-        // Step 8: กด Generate (arrow_forward)
-        sendProgress(8, 'กด Generate...');
+        // Step 9: กด Generate (arrow_forward)
+        sendProgress(9, 'กด Generate...');
         await clickGenerateButton();
 
         removeFlowOverlay();
