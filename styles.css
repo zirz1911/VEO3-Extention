@@ -388,6 +388,60 @@ textarea:focus {
   flex-shrink: 0;
 }
 
+/* Run All button */
+.btn-run {
+  background: linear-gradient(135deg, #F97316 0%, #ea580c 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  border: none;
+  padding: 14px 24px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  min-height: 48px;
+  transition: opacity 0.2s, transform 0.1s;
+  box-shadow: 0 2px 12px rgba(249, 115, 22, 0.4);
+}
+
+.btn-run:hover { opacity: 0.92; transform: translateY(-1px); }
+.btn-run:active { transform: translateY(0); }
+.btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* Step nav row (prev/next) */
+.step-nav {
+  display: flex;
+  flex-direction: row !important;
+  gap: 8px;
+}
+
+.step-nav .btn-ghost { flex: 0 0 auto; }
+.step-nav .btn-primary { flex: 1; }
+
+/* Run summary checklist */
+.run-summary {
+  background: #1a1a2e;
+  border: 1px solid #2a2a3e;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.run-summary-item {
+  font-size: 13px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Status Bar */
 .status-bar {
   background: var(--input-bg);
@@ -744,7 +798,7 @@ button,
   background: none;
   border: none;
   cursor: pointer;
-  padding: 6px 8px;
+  padding: 6px 4px;
   flex: 1;
   border-radius: var(--radius-sm);
   transition: background 0.15s;
@@ -799,7 +853,7 @@ button,
 }
 
 .step-connector {
-  flex: 0 0 20px;
+  flex: 0 0 12px;
   height: 2px;
   background: var(--border-color);
   margin-bottom: 20px;

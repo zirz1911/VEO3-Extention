@@ -93,17 +93,22 @@
       <div class="step-indicator">
         <button class="step-btn active" data-step="1" id="stepBtn1">
           <span class="step-num">1</span>
-          <span class="step-label">รูปภาพ</span>
+          <span class="step-label">Prompt</span>
         </button>
         <div class="step-connector"></div>
         <button class="step-btn" data-step="2" id="stepBtn2">
           <span class="step-num">2</span>
-          <span class="step-label">วิดีโอ</span>
+          <span class="step-label">Video</span>
         </button>
         <div class="step-connector"></div>
         <button class="step-btn" data-step="3" id="stepBtn3">
           <span class="step-num">3</span>
           <span class="step-label">Caption</span>
+        </button>
+        <div class="step-connector"></div>
+        <button class="step-btn" data-step="4" id="stepBtn4">
+          <span class="step-num">4</span>
+          <span class="step-label">เริ่ม</span>
         </button>
       </div>
 
@@ -174,12 +179,12 @@
           <textarea id="promptPreview1" class="prompt-preview" rows="10" readonly placeholder="Prompt จะแสดงที่นี่..."></textarea>
         </div>
 
-        <div class="actions">
+        <div class="actions step-nav">
           <button id="copyPrompt1Btn" class="btn btn-secondary">
-            <span class="icon">📋</span> Copy Prompt
+            <span class="icon">📋</span> Copy
           </button>
           <button id="goStep2Btn" class="btn btn-primary">
-            ไปขั้นตอน 2 →
+            ถัดไป →
           </button>
         </div>
       </div>
@@ -284,24 +289,9 @@
           <textarea id="promptPreview2" class="prompt-preview" rows="8" readonly placeholder="Prompt จะแสดงที่นี่..."></textarea>
         </div>
 
-        <div class="actions">
-          <button id="analyzeBtn" class="btn btn-secondary">
-            <span class="icon">✨</span> Generate Prompt
-          </button>
-
-          <div class="action-row">
-            <button id="cancelBtn" class="btn btn-ghost">Cancel</button>
-            <button id="createBtn" class="btn btn-primary">
-              <span class="icon">🎬</span> Create Video
-            </button>
-          </div>
-
-          <button id="testDownloadBtn" class="btn btn-ghost" style="display:none;">
-            🧪 Test Download
-          </button>
-          <button id="testUploadBtn" class="btn btn-ghost" style="display:none;">
-            📤 Test Upload
-          </button>
+        <div class="actions step-nav">
+          <button id="backStep1Btn" class="btn btn-ghost">← ก่อนหน้า</button>
+          <button id="goStep3Btn" class="btn btn-primary">ถัดไป →</button>
         </div>
       </div>
 
@@ -354,24 +344,37 @@
           <textarea id="captionInput" rows="3" placeholder="Caption สำหรับ TikTok..."></textarea>
         </div>
 
+        <div class="actions step-nav">
+          <button id="backStep2Btn" class="btn btn-ghost">← ก่อนหน้า</button>
+          <button id="goStep4Btn" class="btn btn-primary">ถัดไป →</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Run All -->
+      <div class="step-panel" id="stepPanel4">
         <div class="form-group">
           <label>TikTok Product ID</label>
           <input type="text" id="productIdInput" placeholder="e.g. 1234567890123456789">
         </div>
 
-        <div class="actions">
-          <button id="copyCaptionPromptBtn" class="btn btn-secondary">
-            <span class="icon">📋</span> Copy Caption Prompt
+        <div class="run-summary">
+          <div class="run-summary-item">✨ Generate Video Prompt</div>
+          <div class="run-summary-item">🤖 Generate Caption</div>
+          <div class="run-summary-item">🎬 Create Video on Flow</div>
+          <div class="run-summary-item">⬇️ Download Video</div>
+          <div class="run-summary-item">📤 Upload to TikTok Studio</div>
+        </div>
+
+        <div class="actions step-nav" style="margin-top: 12px;">
+          <button id="backStep3Btn" class="btn btn-ghost">← ก่อนหน้า</button>
+          <button id="runAllBtn" class="btn btn-run">
+            🚀 เริ่มทำงาน
           </button>
-          <button id="generateCaptionBtn" class="btn btn-primary" style="margin-bottom: 8px;">
-            <span class="icon">🤖</span> Generate with AI
-          </button>
-          <button id="tiktokBtn" class="btn btn-tiktok">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-              <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.76a4.85 4.85 0 0 1-1.01-.07z"/>
-            </svg>
-            Open TikTok Studio
-          </button>
+        </div>
+
+        <div style="margin-top: 8px; display:flex; gap:6px;">
+          <button id="testDownloadBtn" class="btn btn-ghost" style="display:none; flex:1">🧪 Test Download</button>
+          <button id="testUploadBtn" class="btn btn-ghost" style="display:none; flex:1">📤 Test Upload</button>
         </div>
       </div>
 
