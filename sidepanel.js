@@ -657,8 +657,37 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // ── TikTok Button ─────────────────────────────────────────────────────
-    // tiktokBtn removed — TikTok opens automatically in runAll pipeline
+    // ── Test Image Button (Step 1) ────────────────────────────────────────
+    document.getElementById('testImageBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('testImageBtn');
+        btn.innerText = 'Testing...';
+        btn.disabled = true;
+
+        const prompt = document.getElementById('promptPreview1').value;
+        if (!prompt) {
+            alert('Prompt is empty');
+            btn.innerText = '🧪 Test Image';
+            btn.disabled = false;
+            return;
+        }
+
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (!tab) { alert('No active tab'); return; }
+
+            chrome.tabs.sendMessage(tab.id, { action: 'testImageGen', prompt }, (response) => {
+                if (chrome.runtime.lastError) {
+                    alert('Error: ' + chrome.runtime.lastError.message);
+                }
+                btn.innerText = '🧪 Test Image';
+                btn.disabled = false;
+            });
+        } catch (err) {
+            alert('Error: ' + err.message);
+            btn.innerText = '🧪 Test Image';
+            btn.disabled = false;
+        }
+    });
 
     // ── Test Upload Button ────────────────────────────────────────────────
     document.getElementById('testUploadBtn').addEventListener('click', async () => {

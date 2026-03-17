@@ -93,20 +93,21 @@
       <div class="step-indicator">
         <button class="step-btn active" data-step="1" id="stepBtn1">
           <span class="step-num">1</span>
-          <span class="step-label">Prompt</span>
+          <span class="step-label">Image</span>
         </button>
-        <div class="step-connector"></div>
-        <button class="step-btn" data-step="2" id="stepBtn2">
+        <!-- Steps 2-4 hidden during image testing -->
+        <div class="step-connector" style="display:none;"></div>
+        <button class="step-btn" data-step="2" id="stepBtn2" style="display:none;">
           <span class="step-num">2</span>
           <span class="step-label">Video</span>
         </button>
-        <div class="step-connector"></div>
-        <button class="step-btn" data-step="3" id="stepBtn3">
+        <div class="step-connector" style="display:none;"></div>
+        <button class="step-btn" data-step="3" id="stepBtn3" style="display:none;">
           <span class="step-num">3</span>
           <span class="step-label">Caption</span>
         </button>
-        <div class="step-connector"></div>
-        <button class="step-btn" data-step="4" id="stepBtn4">
+        <div class="step-connector" style="display:none;"></div>
+        <button class="step-btn" data-step="4" id="stepBtn4" style="display:none;">
           <span class="step-num">4</span>
           <span class="step-label">เริ่ม</span>
         </button>
@@ -183,7 +184,10 @@
           <button id="copyPrompt1Btn" class="btn btn-secondary">
             <span class="icon">📋</span> Copy
           </button>
-          <button id="goStep2Btn" class="btn btn-primary">
+          <button id="testImageBtn" class="btn btn-ghost">
+            🧪 Test Image
+          </button>
+          <button id="goStep2Btn" class="btn btn-primary" style="display:none;">
             ถัดไป →
           </button>
         </div>
