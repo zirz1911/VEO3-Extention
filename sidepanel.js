@@ -824,7 +824,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const automationOverlay = document.getElementById('automationOverlay');
         const overlayStepText   = document.getElementById('overlayStepText');
         if (automationOverlay) {
-            if (overlayStepText) overlayStepText.innerText = 'กำลังสร้าง Prompt...';
+            if (overlayStepText) overlayStepText.innerText = 'กำลังสร้าง Caption...';
             automationOverlay.classList.remove('hidden');
         }
         statusBar.classList.remove('hidden');
@@ -832,36 +832,14 @@ document.addEventListener('DOMContentLoaded', () => {
         progressFill.style.transition = 'none';
         progressFill.style.width = '0%';
         progressFill.classList.add('pulse');
-        statusText.innerText = 'กำลังสร้าง Prompt...';
-        chrome.storage.local.set({ jobStatus: { running: true, step: 0, text: 'กำลังสร้าง Prompt...' } });
+        statusText.innerText = 'กำลังสร้าง Caption...';
+        chrome.storage.local.set({ jobStatus: { running: true, step: 0, text: 'กำลังสร้าง Caption...' } });
 
         try {
-            // ── Step A: Generate Video Prompt ──────────────────────────────
-            const action   = document.getElementById('action2').value;
-            const platform = document.getElementById('platform2').value;
-            const pacing   = document.getElementById('pacing2').value;
-            const script   = document.getElementById('scriptInput').value;
+            // ── Step A: Video prompt = Issue template ตรงๆ ────────────────
+            const videoPrompt = buildStep2Prompt();
 
-            const videoPromptText = `Create a single, concise UGC video prompt for a Thai social media advertisement.
-Product: "${productName}"
-Person action: ${action}
-Platform: ${platform}
-Pacing: ${pacing}
-Key message: ${script}
-
-Write one paragraph describing the video scene, camera style, and atmosphere.
-Style: UGC smartphone footage, natural Thai daylight, looks authentic like a real customer review for ${platform}.
-End with a CTA "สั่งซื้อได้เลย".
-Do NOT use scene numbers or bullet points.`;
-
-            const generatedVideoPrompt = await callAI(videoPromptText, selectedModel, chatgptKey, googleKey, 300);
-            document.getElementById('scriptInput').value = generatedVideoPrompt;
-            updateStep2Prompt();
-            saveFormData();
-
-            // ── Step B: Generate Caption ────────────────────────────────────
-            if (overlayStepText) overlayStepText.innerText = 'กำลังสร้าง Caption...';
-            statusText.innerText = 'กำลังสร้าง Caption...';
+            // ── Step B: Generate Caption with AI ───────────────────────────
 
             const captionPromptText = buildStep3Prompt();
             const generatedCaption  = await callAI(captionPromptText, selectedModel, chatgptKey, googleKey, 400);
@@ -881,7 +859,7 @@ Do NOT use scene numbers or bullet points.`;
                 quantity:    document.getElementById('quantitySelect').value,
                 veoModel:    document.getElementById('veoModelSelect').value,
                 camera:      'static',
-                script:      generatedVideoPrompt,
+                script:      videoPrompt,
                 imageData:   null
             };
 
