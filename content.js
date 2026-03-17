@@ -22,7 +22,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "testImageGen") {
         console.log("🧪 Test Image Gen triggered, prompt:", request.prompt?.substring(0, 60));
         _jobCancelled = false;
-        handleImageGeneration({ prompt: request.prompt });
+        handleImageGeneration({
+            prompt:           request.prompt,
+            faceImageData:    request.faceImageData,
+            productImageData: request.productImageData
+        });
         sendResponse({ status: "started" });
     }
     if (request.action === "testDownload") {
@@ -113,17 +117,31 @@ async function handleImageGeneration(data) {
 
         // ปิด settings dropdown
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 600));
+
+        // Step 6: อัปโหลด Face Reference
+        if (data.faceImageData) {
+            sendProgress(6, 'อัปโหลด Face Reference...');
+            await clickUploadImage(data.faceImageData);
+            await new Promise(r => setTimeout(r, 1000));
+        }
+
+        // Step 6.5: อัปโหลด Product Image
+        if (data.productImageData) {
+            sendProgress(6.5, 'อัปโหลด Product Image...');
+            await clickUploadImage(data.productImageData);
+            await new Promise(r => setTimeout(r, 1000));
+        }
 
         // Step 7: ใส่ Prompt
         if (data.prompt) {
-            sendProgress(6, 'ใส่ Prompt...');
+            sendProgress(7, 'ใส่ Prompt...');
             await setPromptSlate(data.prompt);
             await new Promise(r => setTimeout(r, 500));
         }
 
         // Step 8: กด Generate
-        sendProgress(7, 'กด Generate...');
+        sendProgress(8, 'กด Generate...');
         await clickGenerateButton();
 
         removeFlowOverlay();

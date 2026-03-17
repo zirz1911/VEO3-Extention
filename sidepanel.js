@@ -671,14 +671,38 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // อ่าน face + product image data
+        const faceData    = !faceImagePreview.classList.contains('hidden') && faceImagePreview.src
+            ? faceImagePreview.src : null;
+        const productData = !imagePreview.classList.contains('hidden') && imagePreview.src
+            ? imagePreview.src : null;
+
+        // ถ้ามีไฟล์ใหม่ใน input ให้อ่านใหม่
+        const readFile = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload  = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        let faceImageData    = faceData;
+        let productImageData = productData;
+        try {
+            if (faceImageInput.files[0])    faceImageData    = await readFile(faceImageInput.files[0]);
+            if (productImageInput.files[0]) productImageData = await readFile(productImageInput.files[0]);
+        } catch (e) { console.warn('Image read error:', e); }
+
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (!tab) { alert('No active tab'); return; }
+            if (!tab) { alert('No active tab'); btn.innerText = '🧪 Test Image'; btn.disabled = false; return; }
 
-            chrome.tabs.sendMessage(tab.id, { action: 'testImageGen', prompt }, (response) => {
-                if (chrome.runtime.lastError) {
-                    alert('Error: ' + chrome.runtime.lastError.message);
-                }
+            chrome.tabs.sendMessage(tab.id, {
+                action: 'testImageGen',
+                prompt,
+                faceImageData,
+                productImageData
+            }, (response) => {
+                if (chrome.runtime.lastError) alert('Error: ' + chrome.runtime.lastError.message);
                 btn.innerText = '🧪 Test Image';
                 btn.disabled = false;
             });
