@@ -12,6 +12,7 @@
   ],
   "host_permissions": [
     "https://api.openai.com/*",
+    "https://generativelanguage.googleapis.com/*",
     "https://labs.google/*",
     "https://www.tiktok.com/*"
   ],
