@@ -226,6 +226,17 @@ async function handleGeneration(data) {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         await new Promise(r => setTimeout(r, 600));
 
+        // เคลียร์ prompt เดิม (ล้างพรอมต์)
+        const clearBtn = xpathFind('//button[.//span[normalize-space(text())="ล้างพรอมต์"]]')
+            || xpathFind('//button[.//i[normalize-space(text())="close"]][contains(@class,"sc-d3791a4f")]');
+        if (clearBtn) {
+            humanClick(clearBtn);
+            console.log('✅ Cleared old prompt');
+            await new Promise(r => setTimeout(r, 500));
+        } else {
+            console.warn('⚠️ Clear prompt button not found — skipping');
+        }
+
         // Step 2: เลือก Ratio + Quantity
         sendProgress(2, 'กำลังตั้งค่า Ratio + Quantity...');
         await selectRatioAndQuantity(data.ratio, data.quantity);
