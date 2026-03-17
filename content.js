@@ -194,8 +194,18 @@ async function handleImageGeneration(data) {
 async function handleGeneration(data) {
     showFlowOverlay();
     try {
-        // Step 1: เปิด settings dropdown → เลือก VIDEO
+        // Step 1: กดกลับก่อน (ออกจากหน้า image result)
         sendProgress(1, 'เปลี่ยนเป็นโหมดวิดีโอ...');
+        const backBtn = xpathFind('//button[.//i[normalize-space(text())="arrow_back"]]');
+        if (backBtn) {
+            humanClick(backBtn);
+            console.log('✅ Clicked back button');
+            await new Promise(r => setTimeout(r, 800));
+        } else {
+            console.warn('⚠️ Back button not found — skipping');
+        }
+
+        // เปิด settings dropdown → เลือก VIDEO
         const triggerBtn = document.querySelector('button.sc-46973129-1');
         if (!triggerBtn) throw new Error('Settings trigger button not found');
         humanClick(triggerBtn);
