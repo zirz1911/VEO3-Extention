@@ -102,6 +102,15 @@ chrome.runtime.onMessage.addListener((message) => {
         }, 8000);
     }
 
+    if (message.action === 'imageReady') {
+        statusText.innerText = 'สร้างรูปเสร็จ! ไปขั้นตอนวิดีโอ...';
+        // ย้ายไป Step 2 อัตโนมัติ
+        setTimeout(() => {
+            const btn2 = document.getElementById('stepBtn2');
+            if (btn2) btn2.click();
+        }, 1000);
+    }
+
     if (message.action === 'videoError') {
         progressFill.classList.remove('pulse');
         statusText.innerText = `Error: ${message.error}`;
@@ -710,6 +719,54 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             alert('Error: ' + err.message);
             btn.innerText = '🧪 Test Image';
+            btn.disabled = false;
+        }
+    });
+
+    // ── Test Video Button (Step 2) ────────────────────────────────────────
+    document.getElementById('testVideoBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('testVideoBtn');
+        btn.innerText = 'Testing...';
+        btn.disabled = true;
+
+        const prompt = document.getElementById('promptPreview2').value;
+        if (!prompt) {
+            alert('Prompt is empty');
+            btn.innerText = '🧪 Test Video';
+            btn.disabled = false;
+            return;
+        }
+
+        // โหลด image จาก storage (จาก image gen ขั้นตอนก่อน)
+        const stored = await new Promise(r => chrome.storage.local.get('lastGeneratedImageData', r));
+        const imageData = stored.lastGeneratedImageData || null;
+        if (!imageData) {
+            alert('ไม่พบรูปภาพที่เจนไว้ — กรุณาเจนรูปก่อน (Step 1)');
+            btn.innerText = '🧪 Test Video';
+            btn.disabled = false;
+            return;
+        }
+
+        const data = {
+            script:   prompt,
+            ratio:    document.getElementById('ratioSelect').value,
+            quantity: document.getElementById('quantitySelect').value,
+            veoModel: document.getElementById('veoModelSelect').value,
+            imageData
+        };
+
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (!tab) { alert('No active tab'); btn.innerText = '🧪 Test Video'; btn.disabled = false; return; }
+
+            chrome.tabs.sendMessage(tab.id, { action: 'generateVideo', data }, () => {
+                if (chrome.runtime.lastError) alert('Error: ' + chrome.runtime.lastError.message);
+                btn.innerText = '🧪 Test Video';
+                btn.disabled = false;
+            });
+        } catch (err) {
+            alert('Error: ' + err.message);
+            btn.innerText = '🧪 Test Video';
             btn.disabled = false;
         }
     });

@@ -194,26 +194,45 @@ async function handleImageGeneration(data) {
 async function handleGeneration(data) {
     showFlowOverlay();
     try {
-        // Step 1: กดเริ่ม / Start
-        sendProgress(1, 'กำลังเริ่มต้น...');
-        await clickStart();
-        await new Promise(r => setTimeout(r, 1500));
+        // Step 1: เปิด settings dropdown → เลือก VIDEO
+        sendProgress(1, 'เปลี่ยนเป็นโหมดวิดีโอ...');
+        const triggerBtn = document.querySelector('button.sc-46973129-1');
+        if (!triggerBtn) throw new Error('Settings trigger button not found');
+        humanClick(triggerBtn);
+        await new Promise(r => setTimeout(r, 700));
 
-        // Step 2: กดอัปโหลดรูปภาพ + inject file
-        sendProgress(2, 'กำลังอัปโหลดรูปภาพ...');
-        await clickUploadImage(data.imageData);
-        await new Promise(r => setTimeout(r, 2000));
+        let videoTab = null;
+        for (let i = 0; i < 20; i++) {
+            videoTab = document.querySelector('button[aria-controls$="-content-VIDEO"]');
+            if (videoTab) break;
+            await new Promise(r => setTimeout(r, 200));
+        }
+        if (!videoTab) throw new Error('VIDEO tab not found');
+        humanClick(videoTab);
+        console.log('✅ Selected VIDEO tab');
+        await new Promise(r => setTimeout(r, 400));
 
-        // Step 3: เลือก Ratio + Quantity
-        sendProgress(3, 'กำลังตั้งค่า Ratio + Quantity...');
+        // ปิด dropdown
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await new Promise(r => setTimeout(r, 600));
+
+        // Step 2: เลือก Ratio + Quantity
+        sendProgress(2, 'กำลังตั้งค่า Ratio + Quantity...');
         await selectRatioAndQuantity(data.ratio, data.quantity);
         await new Promise(r => setTimeout(r, 500));
 
-        // Step 3.5: เลือก Veo Model
+        // Step 2.5: เลือก Veo Model
         if (data.veoModel) {
-            sendProgress(3.5, 'กำลังเลือก Veo Model...');
+            sendProgress(2.5, 'กำลังเลือก Veo Model...');
             await selectModel(data.veoModel);
             await new Promise(r => setTimeout(r, 500));
+        }
+
+        // Step 3: อัปโหลดรูป (จาก image gen)
+        if (data.imageData) {
+            sendProgress(3, 'กำลังอัปโหลดรูปภาพ...');
+            await clickUploadImage(data.imageData);
+            await new Promise(r => setTimeout(r, 1000));
         }
 
         // Step 4: ใส่ Prompt (Slate editor)
@@ -587,6 +606,22 @@ async function downloadLatestImage() {
     }
     if (!imageTile) { console.warn('⚠️ No image tile found'); return; }
     console.log('✅ Found image tile:', imageTile.dataset.tileId);
+
+    // เก็บ image data ไว้ใน storage เพื่อใช้ใน video gen
+    const imgEl = imageTile.querySelector('img');
+    if (imgEl?.src) {
+        try {
+            const res = await fetch(imgEl.src);
+            const blob = await res.blob();
+            const b64 = await new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.readAsDataURL(blob);
+            });
+            chrome.storage.local.set({ lastGeneratedImageData: b64 });
+            console.log('✅ Stored generated image data for video gen');
+        } catch (e) { console.warn('⚠️ Could not store image data:', e); }
+    }
 
     // คลิก <a> link ข้างใน เพื่อเปิดรูป
     imageTile.scrollIntoView({ behavior: 'smooth', block: 'center' });
