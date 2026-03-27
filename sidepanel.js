@@ -839,35 +839,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
-            if (tiktokTabs.length === 0) {
-                alert('TikTok Studio tab not found');
-                btn.innerText = 'Test Upload';
+            // หา tab ทุก tab ของ tiktok ก่อน (ไม่กรอง URL เพื่อ debug)
+            const allTikTokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/*' });
+            const tiktokTabs    = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
+
+            console.log('All TikTok tabs:', allTikTokTabs.map(t => t.url));
+            console.log('TikTok Studio tabs:', tiktokTabs.map(t => t.url));
+
+            if (allTikTokTabs.length === 0) {
+                alert('ไม่พบแท็บ TikTok เลย\nกรุณาเปิด https://www.tiktok.com/tiktokstudio/upload ก่อน');
+                btn.innerText = '📤 Test TikTok';
                 btn.disabled = false;
                 return;
             }
 
+            // ใช้ tiktokstudio tab ถ้ามี ไม่งั้นใช้ tiktok tab แรก
+            const targetTab = tiktokTabs.length > 0 ? tiktokTabs[0] : allTikTokTabs[0];
+            alert(`พบแท็บ: ${targetTab.url}\nID: ${targetTab.id}`);
+
             const caption   = document.getElementById('captionInput').value.trim();
             const productId = document.getElementById('productIdInput').value.trim();
 
-            // รอ tab โหลดเสร็จก่อนส่ง
-            await new Promise((resolve) => {
-                const tabId = tiktokTabs[0].id;
-                chrome.tabs.get(tabId, (tab) => {
-                    if (tab.status === 'complete') { resolve(); return; }
-                    const listener = (id, info) => {
-                        if (id === tabId && info.status === 'complete') {
-                            chrome.tabs.onUpdated.removeListener(listener);
-                            resolve();
-                        }
-                    };
-                    chrome.tabs.onUpdated.addListener(listener);
-                    setTimeout(() => { chrome.tabs.onUpdated.removeListener(listener); resolve(); }, 15000);
-                });
-            });
-            await new Promise(r => setTimeout(r, 1000));
-
-            sendToTikTok(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId })
+            sendToTikTok(targetTab.id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId })
+                .then(() => alert('ส่ง uploadVideo สำเร็จ'))
                 .catch(err => alert('Error: ' + err.message));
 
             setTimeout(() => { btn.innerText = 'Test Upload'; btn.disabled = false; }, 15000);
