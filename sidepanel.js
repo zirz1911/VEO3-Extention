@@ -27,6 +27,26 @@ async function switchToTikTok() {
     }
 }
 
+// inject tiktok_content.js ถ้ายังไม่มี แล้วส่ง message
+async function sendToTikTok(tabId, message) {
+    try {
+        await chrome.scripting.executeScript({
+            target: { tabId },
+            files: ['tiktok_content.js']
+        });
+    } catch (e) {
+        // inject ซ้ำไม่เป็นไร (script อาจโหลดไปแล้ว)
+        console.log('scripting inject note:', e.message);
+    }
+    await new Promise(r => setTimeout(r, 500));
+    return new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tabId, message, (res) => {
+            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+            else resolve(res);
+        });
+    });
+}
+
 async function switchToFlow() {
     const tabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
     if (tabs.length > 0) {
@@ -107,16 +127,14 @@ chrome.runtime.onMessage.addListener((message) => {
                 await new Promise(r => setTimeout(r, 1000));
 
                 statusText.innerText = "กำลังอัปโหลดไป TikTok...";
-                chrome.tabs.sendMessage(tiktokTabs[0].id, {
+                sendToTikTok(tiktokTabs[0].id, {
                     action: 'uploadVideo',
                     videoUrl: lastVideoUrl,
                     caption,
                     productId
-                }, (res) => {
-                    if (chrome.runtime.lastError) {
-                        console.error("uploadVideo error:", chrome.runtime.lastError.message);
-                        statusText.innerText = "Error: " + chrome.runtime.lastError.message;
-                    }
+                }).catch(err => {
+                    console.error("uploadVideo error:", err.message);
+                    statusText.innerText = "Error: " + err.message;
                 });
             } catch (err) {
                 console.error("TikTok upload error:", err);
@@ -849,9 +867,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             await new Promise(r => setTimeout(r, 1000));
 
-            chrome.tabs.sendMessage(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId }, () => {
-                if (chrome.runtime.lastError) alert('Error: ' + chrome.runtime.lastError.message);
-            });
+            sendToTikTok(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId })
+                .catch(err => alert('Error: ' + err.message));
 
             setTimeout(() => { btn.innerText = 'Test Upload'; btn.disabled = false; }, 15000);
         } catch (err) {
