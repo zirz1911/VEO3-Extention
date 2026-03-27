@@ -266,13 +266,16 @@ async function handleGeneration(data) {
         // [DISABLED] if (data.script) { await setPromptSlate(data.script); }
 
         // Step 5: กด Generate (รอจนปุ่ม enabled)
-        // [DISABLED] await clickGenerateButton();
+        sendProgress(5, 'กำลัง Generate วิดีโอ...');
+        await clickGenerateButton();
 
         // Step 6: รอวิดีโอสร้างเสร็จ
-        // [DISABLED] await waitForVideoReady();
+        sendProgress(6, 'รอวิดีโอสร้างเสร็จ...');
+        await waitForVideoReady();
 
         // Step 7: ดาวน์โหลดวิดีโอ 720p
-        // [DISABLED] await downloadLatestVideo();
+        sendProgress(7, 'กำลังดาวน์โหลดวิดีโอ...');
+        await downloadLatestVideo();
 
         removeFlowOverlay();
         safeSendMessage({ action: "videoReady" });
