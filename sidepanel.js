@@ -156,7 +156,9 @@ Style: UGC smartphone footage, handheld slightly shaky,
 natural Thai daylight, no cinematic filter, no heavy color grading.
 Looks like a real person filming themselves for ${platform}.
 
-Pacing: ${pacing}`;
+Pacing: ${pacing}
+
+No text, captions, subtitles, or watermarks visible in the video.`;
 }
 
 function buildStep3Prompt() {

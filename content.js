@@ -262,8 +262,12 @@ async function handleGeneration(data) {
             await new Promise(r => setTimeout(r, 1000));
         }
 
-        // Step 4: ใส่ Prompt (Slate editor) — ปิดไว้ ใส่เองด้วยมือ
-        // if (data.script) { await setPromptSlate(data.script); }
+        // Step 4: ใส่ Prompt (Slate editor)
+        if (data.script) {
+            sendProgress(4, 'กำลังใส่ Prompt...');
+            await setPromptSlate(data.script);
+            await new Promise(r => setTimeout(r, 1000));
+        }
 
         // Step 5: กด Generate (รอจนปุ่ม enabled)
         sendProgress(5, 'กำลัง Generate วิดีโอ...');
