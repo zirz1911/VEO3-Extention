@@ -27,36 +27,17 @@ async function switchToTikTok() {
     }
 }
 
-// inject tiktok_content.js แล้วส่ง message พร้อม retry
-async function sendToTikTok(tabId, message) {
-    // inject ทุกครั้ง (ถ้าซ้ำก็ไม่เป็นไร — listener เพิ่ม แต่ยังทำงานได้)
-    try {
-        await chrome.scripting.executeScript({ target: { tabId }, files: ['tiktok_content.js'] });
-        console.log('✅ tiktok_content.js injected');
-    } catch (e) {
-        console.warn('inject note:', e.message);
-    }
-
-    // retry ส่ง message สูงสุด 5 ครั้ง
-    for (let i = 0; i < 5; i++) {
-        await new Promise(r => setTimeout(r, 1000));
-        const result = await new Promise(resolve => {
-            chrome.tabs.sendMessage(tabId, message, (res) => {
-                if (chrome.runtime.lastError) resolve({ error: chrome.runtime.lastError.message });
-                else resolve(res || { ok: true });
-            });
-        });
-        if (!result?.error) {
-            console.log('✅ sendToTikTok success on attempt', i + 1);
-            return result;
-        }
-        console.warn(`attempt ${i + 1} failed:`, result.error);
-        // inject อีกครั้งถ้ายังไม่ได้
-        try {
-            await chrome.scripting.executeScript({ target: { tabId }, files: ['tiktok_content.js'] });
-        } catch (e) { /* ignore */ }
-    }
-    throw new Error('ส่ง message ไป TikTok ไม่สำเร็จหลังลอง 5 ครั้ง');
+// inject tiktok_content.js แล้วเรียก uploadVideoToTikTok โดยตรง (ไม่ผ่าน message)
+async function sendToTikTok(tabId, { videoUrl, caption, productId }) {
+    // inject script เข้า isolated world
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['tiktok_content.js'] });
+    await new Promise(r => setTimeout(r, 500));
+    // เรียก function โดยตรงใน isolated world เดียวกัน
+    await chrome.scripting.executeScript({
+        target: { tabId },
+        func: (url, cap, pid) => { uploadVideoToTikTok(url, cap, pid); },
+        args: [videoUrl, caption || '', productId || '']
+    });
 }
 
 async function switchToFlow() {
