@@ -9,14 +9,9 @@ async function ensureTikTokStudioOpen({ focus = false } = {}) {
         return;
     }
 
-    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (activeTab) {
-        await chrome.tabs.update(activeTab.id, { url: TIKTOK_URL, active: true });
-        console.log('Navigated current tab to TikTok Studio upload');
-    } else {
-        await chrome.tabs.create({ url: TIKTOK_URL, active: focus });
-        console.log('TikTok Studio opened as new tab (fallback)');
-    }
+    // เปิด new tab เสมอ — ไม่ navigate tab labs.google
+    await chrome.tabs.create({ url: TIKTOK_URL, active: focus });
+    console.log('TikTok Studio opened as new tab');
 }
 
 async function switchToTikTok() {
@@ -29,10 +24,14 @@ async function switchToTikTok() {
 
 // inject tiktok_content.js แล้วเรียก uploadVideoToTikTok โดยตรง (ไม่ผ่าน message)
 async function sendToTikTok(tabId, { videoUrl, caption, productId }) {
-    // inject script เข้า isolated world
+    // ตรวจสอบ tab ก่อน inject
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab.url || tab.url.startsWith('chrome-error://') || tab.status === 'loading') {
+        throw new Error(`Tab ไม่พร้อม: ${tab.url || 'unknown'} (status: ${tab.status})`);
+    }
+
     await chrome.scripting.executeScript({ target: { tabId }, files: ['tiktok_content.js'] });
     await new Promise(r => setTimeout(r, 500));
-    // เรียก function โดยตรงใน isolated world เดียวกัน
     await chrome.scripting.executeScript({
         target: { tabId },
         func: (url, cap, pid) => { uploadVideoToTikTok(url, cap, pid); },
