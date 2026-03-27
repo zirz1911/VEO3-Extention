@@ -180,6 +180,17 @@ async function handleImageGeneration(data) {
         sendProgress(11, 'กำลังดาวน์โหลดรูป...');
         await downloadLatestImage();
 
+        // Step 12: กดกลับ เพื่อกลับหน้า project
+        sendProgress(12, 'กำลังกลับหน้า project...');
+        const backBtn = document.querySelector('button.sc-e8425ea6-0');
+        if (backBtn) {
+            humanClick(backBtn);
+            console.log('✅ Clicked back button after image download');
+            await new Promise(r => setTimeout(r, 1000));
+        } else {
+            console.warn('⚠️ Back button not found after image download');
+        }
+
         removeFlowOverlay();
         safeSendMessage({ action: 'imageReady' });
         console.log('✅ Image download complete');
