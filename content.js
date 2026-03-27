@@ -271,11 +271,11 @@ async function handleGeneration(data) {
 
         // Step 5: กด Generate (รอจนปุ่ม enabled)
         sendProgress(5, 'กำลัง Generate วิดีโอ...');
-        await clickGenerateButton();
+        // [DISABLED] await clickGenerateButton();
 
         // Step 6: รอวิดีโอสร้างเสร็จ
         sendProgress(6, 'รอวิดีโอสร้างเสร็จ...');
-        await waitForVideoReady();
+        // [DISABLED] await waitForVideoReady();
 
         // Step 7: ดาวน์โหลดวิดีโอ 720p
         sendProgress(7, 'กำลังดาวน์โหลดวิดีโอ...');
