@@ -58,38 +58,46 @@ chrome.runtime.onMessage.addListener((message) => {
 
         statusText.innerText = "ดาวน์โหลดเสร็จ! กำลังสลับไป TikTok...";
         setTimeout(async () => {
-            await ensureTikTokStudioOpen({ focus: false });
-            await switchToTikTok();
+            try {
+                // เปิด TikTok Studio tab (ถ้าไม่มีให้สร้างใหม่)
+                await ensureTikTokStudioOpen({ focus: true });
 
-            await new Promise(r => setTimeout(r, 3000));
+                // รอ tab โหลด แล้วค่อย switch
+                await new Promise(r => setTimeout(r, 3000));
+                await switchToTikTok();
 
-            const { lastVideoUrl, formData } = await chrome.storage.local.get(['lastVideoUrl', 'formData']);
-            const caption   = document.getElementById('captionInput').value.trim() || formData?.caption || '';
-            const productId = document.getElementById('productIdInput').value.trim() || formData?.productId || '';
-
-            if (!lastVideoUrl) {
-                console.warn("No lastVideoUrl — skipping auto upload");
-                return;
-            }
-
-            let tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
-            if (tiktokTabs.length === 0) {
+                // รออีกนิด ให้ content script พร้อม
                 await new Promise(r => setTimeout(r, 2000));
-                tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
-            }
-            if (tiktokTabs.length === 0) {
-                console.warn("TikTok tab not found after retry — skipping upload");
-                return;
-            }
 
-            statusText.innerText = "กำลังอัปโหลดไป TikTok...";
-            chrome.tabs.sendMessage(tiktokTabs[0].id, {
-                action: 'uploadVideo',
-                videoUrl: lastVideoUrl,
-                caption,
-                productId
-            });
-        }, 3000);
+                const { lastVideoUrl, formData } = await chrome.storage.local.get(['lastVideoUrl', 'formData']);
+                const caption   = document.getElementById('captionInput').value.trim() || formData?.caption || '';
+                const productId = document.getElementById('productIdInput').value.trim() || formData?.productId || '';
+
+                if (!lastVideoUrl) {
+                    console.warn("No lastVideoUrl — skipping auto upload");
+                    statusText.innerText = "ไม่พบ URL วิดีโอ — อัปโหลดเองด้วยมือ";
+                    return;
+                }
+
+                let tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
+                if (tiktokTabs.length === 0) {
+                    console.warn("TikTok tab not found — skipping upload");
+                    statusText.innerText = "ไม่พบแท็บ TikTok Studio";
+                    return;
+                }
+
+                statusText.innerText = "กำลังอัปโหลดไป TikTok...";
+                chrome.tabs.sendMessage(tiktokTabs[0].id, {
+                    action: 'uploadVideo',
+                    videoUrl: lastVideoUrl,
+                    caption,
+                    productId
+                });
+            } catch (err) {
+                console.error("TikTok upload error:", err);
+                statusText.innerText = "Error ไป TikTok: " + err.message;
+            }
+        }, 1000);
 
         setTimeout(() => {
             statusBar.classList.add('hidden');
