@@ -195,14 +195,20 @@ async function handleGeneration(data) {
     showFlowOverlay();
     try {
         // Step 1: กดกลับก่อน (ออกจากหน้า image result)
+        // ถ้าอยู่ใน /flow/project/[id] แล้ว ไม่ต้องกด back (จะออกไปหน้าแรก)
         sendProgress(1, 'เปลี่ยนเป็นโหมดวิดีโอ...');
-        const backBtn = xpathFind('//button[.//i[normalize-space(text())="arrow_back"]]');
-        if (backBtn) {
-            humanClick(backBtn);
-            console.log('✅ Clicked back button');
-            await new Promise(r => setTimeout(r, 800));
+        const onProjectPage = /\/flow\/project\/[a-zA-Z0-9-]+/.test(location.pathname);
+        if (!onProjectPage) {
+            const backBtn = xpathFind('//button[.//i[normalize-space(text())="arrow_back"]]');
+            if (backBtn) {
+                humanClick(backBtn);
+                console.log('✅ Clicked back button');
+                await new Promise(r => setTimeout(r, 800));
+            } else {
+                console.warn('⚠️ Back button not found — skipping');
+            }
         } else {
-            console.warn('⚠️ Back button not found — skipping');
+            console.log('✅ Already on project page — skip back button');
         }
 
         // เปิด settings dropdown → เลือก VIDEO
