@@ -27,24 +27,36 @@ async function switchToTikTok() {
     }
 }
 
-// inject tiktok_content.js ถ้ายังไม่มี แล้วส่ง message
+// inject tiktok_content.js แล้วส่ง message พร้อม retry
 async function sendToTikTok(tabId, message) {
+    // inject ทุกครั้ง (ถ้าซ้ำก็ไม่เป็นไร — listener เพิ่ม แต่ยังทำงานได้)
     try {
-        await chrome.scripting.executeScript({
-            target: { tabId },
-            files: ['tiktok_content.js']
-        });
+        await chrome.scripting.executeScript({ target: { tabId }, files: ['tiktok_content.js'] });
+        console.log('✅ tiktok_content.js injected');
     } catch (e) {
-        // inject ซ้ำไม่เป็นไร (script อาจโหลดไปแล้ว)
-        console.log('scripting inject note:', e.message);
+        console.warn('inject note:', e.message);
     }
-    await new Promise(r => setTimeout(r, 500));
-    return new Promise((resolve, reject) => {
-        chrome.tabs.sendMessage(tabId, message, (res) => {
-            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-            else resolve(res);
+
+    // retry ส่ง message สูงสุด 5 ครั้ง
+    for (let i = 0; i < 5; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        const result = await new Promise(resolve => {
+            chrome.tabs.sendMessage(tabId, message, (res) => {
+                if (chrome.runtime.lastError) resolve({ error: chrome.runtime.lastError.message });
+                else resolve(res || { ok: true });
+            });
         });
-    });
+        if (!result?.error) {
+            console.log('✅ sendToTikTok success on attempt', i + 1);
+            return result;
+        }
+        console.warn(`attempt ${i + 1} failed:`, result.error);
+        // inject อีกครั้งถ้ายังไม่ได้
+        try {
+            await chrome.scripting.executeScript({ target: { tabId }, files: ['tiktok_content.js'] });
+        } catch (e) { /* ignore */ }
+    }
+    throw new Error('ส่ง message ไป TikTok ไม่สำเร็จหลังลอง 5 ครั้ง');
 }
 
 async function switchToFlow() {
@@ -839,29 +851,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // หา tab ทุก tab ของ tiktok ก่อน (ไม่กรอง URL เพื่อ debug)
-            const allTikTokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/*' });
-            const tiktokTabs    = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
-
-            console.log('All TikTok tabs:', allTikTokTabs.map(t => t.url));
-            console.log('TikTok Studio tabs:', tiktokTabs.map(t => t.url));
-
-            if (allTikTokTabs.length === 0) {
-                alert('ไม่พบแท็บ TikTok เลย\nกรุณาเปิด https://www.tiktok.com/tiktokstudio/upload ก่อน');
+            const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
+            if (tiktokTabs.length === 0) {
+                alert('ไม่พบแท็บ TikTok Studio\nกรุณาเปิด https://www.tiktok.com/tiktokstudio/upload ก่อน');
                 btn.innerText = '📤 Test TikTok';
                 btn.disabled = false;
                 return;
             }
 
-            // ใช้ tiktokstudio tab ถ้ามี ไม่งั้นใช้ tiktok tab แรก
-            const targetTab = tiktokTabs.length > 0 ? tiktokTabs[0] : allTikTokTabs[0];
-            alert(`พบแท็บ: ${targetTab.url}\nID: ${targetTab.id}`);
-
             const caption   = document.getElementById('captionInput').value.trim();
             const productId = document.getElementById('productIdInput').value.trim();
 
-            sendToTikTok(targetTab.id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId })
-                .then(() => alert('ส่ง uploadVideo สำเร็จ'))
+            sendToTikTok(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId })
                 .catch(err => alert('Error: ' + err.message));
 
             setTimeout(() => { btn.innerText = 'Test Upload'; btn.disabled = false; }, 15000);
