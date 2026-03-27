@@ -22,12 +22,47 @@ async function switchToTikTok() {
     }
 }
 
-// ส่ง message ไป TikTok tab
-function sendToTikTok(tabId, message) {
+// รอให้ tab โหลดเสร็จ
+function waitForTabComplete(tabId, timeoutMs = 20000) {
+    return new Promise((resolve) => {
+        chrome.tabs.get(tabId, (tab) => {
+            if (tab.status === 'complete') { resolve(); return; }
+            const listener = (id, info) => {
+                if (id === tabId && info.status === 'complete') {
+                    chrome.tabs.onUpdated.removeListener(listener);
+                    resolve();
+                }
+            };
+            chrome.tabs.onUpdated.addListener(listener);
+            setTimeout(() => { chrome.tabs.onUpdated.removeListener(listener); resolve(); }, timeoutMs);
+        });
+    });
+}
+
+// ส่ง message ไป TikTok tab — inject ก่อนถ้า sendMessage ไม่ได้
+async function sendToTikTok(tabId, message) {
+    // รอ tab โหลดเสร็จก่อน
+    await waitForTabComplete(tabId);
+    await new Promise(r => setTimeout(r, 1000));
+
+    // ลอง sendMessage ก่อน
+    const result = await new Promise(resolve => {
+        chrome.tabs.sendMessage(tabId, message, res =>
+            resolve(chrome.runtime.lastError ? { error: chrome.runtime.lastError.message } : (res || { ok: true }))
+        );
+    });
+    if (!result.error) return result;
+
+    console.warn('sendMessage failed, injecting script:', result.error);
+
+    // inject แล้วลองใหม่
+    await chrome.scripting.executeScript({ target: { tabId }, files: ['tiktok_content.js'] });
+    await new Promise(r => setTimeout(r, 1000));
+
     return new Promise((resolve, reject) => {
-        chrome.tabs.sendMessage(tabId, message, (res) => {
+        chrome.tabs.sendMessage(tabId, message, res => {
             if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-            else resolve(res);
+            else resolve(res || { ok: true });
         });
     });
 }
