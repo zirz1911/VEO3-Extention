@@ -86,12 +86,37 @@ chrome.runtime.onMessage.addListener((message) => {
                     return;
                 }
 
+                // รอให้ tab โหลดเสร็จ (status === 'complete') ก่อนส่ง message
+                statusText.innerText = "รอ TikTok Studio โหลด...";
+                await new Promise((resolve) => {
+                    const tabId = tiktokTabs[0].id;
+                    chrome.tabs.get(tabId, (tab) => {
+                        if (tab.status === 'complete') { resolve(); return; }
+                        const listener = (id, info) => {
+                            if (id === tabId && info.status === 'complete') {
+                                chrome.tabs.onUpdated.removeListener(listener);
+                                resolve();
+                            }
+                        };
+                        chrome.tabs.onUpdated.addListener(listener);
+                        // timeout 15s
+                        setTimeout(() => { chrome.tabs.onUpdated.removeListener(listener); resolve(); }, 15000);
+                    });
+                });
+                // รออีก 1 วิ ให้ content script inject เสร็จ
+                await new Promise(r => setTimeout(r, 1000));
+
                 statusText.innerText = "กำลังอัปโหลดไป TikTok...";
                 chrome.tabs.sendMessage(tiktokTabs[0].id, {
                     action: 'uploadVideo',
                     videoUrl: lastVideoUrl,
                     caption,
                     productId
+                }, (res) => {
+                    if (chrome.runtime.lastError) {
+                        console.error("uploadVideo error:", chrome.runtime.lastError.message);
+                        statusText.innerText = "Error: " + chrome.runtime.lastError.message;
+                    }
                 });
             } catch (err) {
                 console.error("TikTok upload error:", err);
@@ -806,7 +831,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const caption   = document.getElementById('captionInput').value.trim();
             const productId = document.getElementById('productIdInput').value.trim();
-            chrome.tabs.sendMessage(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId }, (res) => {
+
+            // รอ tab โหลดเสร็จก่อนส่ง
+            await new Promise((resolve) => {
+                const tabId = tiktokTabs[0].id;
+                chrome.tabs.get(tabId, (tab) => {
+                    if (tab.status === 'complete') { resolve(); return; }
+                    const listener = (id, info) => {
+                        if (id === tabId && info.status === 'complete') {
+                            chrome.tabs.onUpdated.removeListener(listener);
+                            resolve();
+                        }
+                    };
+                    chrome.tabs.onUpdated.addListener(listener);
+                    setTimeout(() => { chrome.tabs.onUpdated.removeListener(listener); resolve(); }, 15000);
+                });
+            });
+            await new Promise(r => setTimeout(r, 1000));
+
+            chrome.tabs.sendMessage(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId }, () => {
                 if (chrome.runtime.lastError) alert('Error: ' + chrome.runtime.lastError.message);
             });
 
