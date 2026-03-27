@@ -263,23 +263,16 @@ async function handleGeneration(data) {
         }
 
         // Step 4: ใส่ Prompt (Slate editor)
-        if (data.script) {
-            sendProgress(4, 'กำลังใส่ Prompt...');
-            await setPromptSlate(data.script);
-            await new Promise(r => setTimeout(r, 1000));
-        }
+        // [DISABLED] if (data.script) { await setPromptSlate(data.script); }
 
         // Step 5: กด Generate (รอจนปุ่ม enabled)
-        sendProgress(5, 'กำลัง Generate วิดีโอ...');
         // [DISABLED] await clickGenerateButton();
 
         // Step 6: รอวิดีโอสร้างเสร็จ
-        sendProgress(6, 'รอวิดีโอสร้างเสร็จ...');
         // [DISABLED] await waitForVideoReady();
 
         // Step 7: ดาวน์โหลดวิดีโอ 720p
-        sendProgress(7, 'กำลังดาวน์โหลดวิดีโอ...');
-        await downloadLatestVideo();
+        // [DISABLED] await downloadLatestVideo();
 
         removeFlowOverlay();
         safeSendMessage({ action: "videoReady" });
