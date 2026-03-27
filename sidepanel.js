@@ -836,24 +836,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ── Test Upload Button ────────────────────────────────────────────────
+    // ── Test TikTok Button ────────────────────────────────────────────────
     document.getElementById('testUploadBtn').addEventListener('click', async () => {
         const btn = document.getElementById('testUploadBtn');
-        btn.innerText = 'Uploading...';
+        btn.innerText = '...';
         btn.disabled = true;
 
         try {
             const { lastVideoUrl } = await chrome.storage.local.get('lastVideoUrl');
             if (!lastVideoUrl) {
-                alert('No video URL — click Test Download first');
-                btn.innerText = 'Test Upload';
-                btn.disabled = false;
-                return;
-            }
-
-            const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
-            if (tiktokTabs.length === 0) {
-                alert('ไม่พบแท็บ TikTok Studio\nกรุณาเปิด https://www.tiktok.com/tiktokstudio/upload ก่อน');
+                alert('ไม่พบ Video URL — รัน Test Download ก่อน');
                 btn.innerText = '📤 Test TikTok';
                 btn.disabled = false;
                 return;
@@ -862,15 +854,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const caption   = document.getElementById('captionInput').value.trim();
             const productId = document.getElementById('productIdInput').value.trim();
 
-            sendToTikTok(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId })
-                .catch(err => alert('Error: ' + err.message));
+            // เปิด/สลับไป TikTok Studio
+            await ensureTikTokStudioOpen({ focus: true });
+            await new Promise(r => setTimeout(r, 4000));
+            await switchToTikTok();
 
-            setTimeout(() => { btn.innerText = 'Test Upload'; btn.disabled = false; }, 15000);
+            // หา tab
+            const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
+            if (tiktokTabs.length === 0) {
+                alert('ยังหา TikTok Studio tab ไม่เจอ');
+                btn.innerText = '📤 Test TikTok';
+                btn.disabled = false;
+                return;
+            }
+
+            // inject + send
+            await sendToTikTok(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId });
+
         } catch (err) {
             alert('Error: ' + err.message);
-            btn.innerText = 'Test Upload';
-            btn.disabled = false;
         }
+
+        btn.innerText = '📤 Test TikTok';
+        btn.disabled = false;
     });
 
     // ── Test Download Button ──────────────────────────────────────────────
