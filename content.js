@@ -263,7 +263,11 @@ async function handleGeneration(data) {
         }
 
         // Step 4: ใส่ Prompt (Slate editor)
-        // [DISABLED] if (data.script) { await setPromptSlate(data.script); }
+        if (data.script) {
+            sendProgress(4, 'กำลังใส่ Prompt...');
+            await setPromptSlate(data.script);
+            await new Promise(r => setTimeout(r, 1000));
+        }
 
         // Step 5: กด Generate (รอจนปุ่ม enabled)
         sendProgress(5, 'กำลัง Generate วิดีโอ...');
