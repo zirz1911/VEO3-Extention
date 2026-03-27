@@ -894,45 +894,18 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.storage.local.set({ jobStatus: { running: true, step: 0, text: 'กำลังสร้าง Caption...' } });
 
         try {
-            // ── Step A: Video prompt = Issue template ตรงๆ ────────────────
+            // ── Step A: Build prompts ──────────────────────────────────────
+            const imagePrompt = buildStep1Prompt();
             const videoPrompt = buildStep2Prompt();
 
-            // ── Step B: Generate Caption with AI ───────────────────────────
-
+            // ── Step B: Generate Caption with AI ──────────────────────────
             const captionPromptText = buildStep3Prompt();
             const generatedCaption  = await callAI(captionPromptText, selectedModel, chatgptKey, googleKey, 400);
             document.getElementById('captionInput').value = generatedCaption;
             saveFormData();
 
-            // ── Step C: Send to content script (video creation pipeline) ────
-            if (overlayStepText) overlayStepText.innerText = 'กำลังเริ่มสร้างวิดีโอ...';
-            statusText.innerText = 'กำลังสร้างวิดีโอ.. รอสักครู่';
-            chrome.storage.local.set({ jobStatus: { running: true, step: 1, text: 'กำลังสร้างวิดีโอ...' } });
-
+            // ── Step C: ตรวจ tab ──────────────────────────────────────────
             await switchToFlow();
-
-            const data = {
-                productName: productName,
-                ratio:       document.getElementById('ratioSelect').value,
-                quantity:    document.getElementById('quantitySelect').value,
-                veoModel:    document.getElementById('veoModelSelect').value,
-                camera:      'static',
-                script:      videoPrompt,
-                imageData:   null
-            };
-
-            const file = productImageInput.files[0];
-            if (file) {
-                data.imageData = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload  = (e) => resolve(e.target.result);
-                    reader.onerror = (e) => reject(e);
-                    reader.readAsDataURL(file);
-                });
-            } else if (imagePreview.src && !imagePreview.classList.contains('hidden')) {
-                data.imageData = imagePreview.src;
-            }
-
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (!tab) {
                 alert("No active tab found.");
@@ -949,7 +922,74 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            chrome.tabs.sendMessage(tab.id, { action: "generateVideo", data }, (response) => {
+            // ── Step D: อ่าน face + product image ────────────────────────
+            const readFile = (file) => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload  = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+            let faceImageData    = (!faceImagePreview.classList.contains('hidden') && faceImagePreview.src) ? faceImagePreview.src : null;
+            let productImageData = (!imagePreview.classList.contains('hidden') && imagePreview.src) ? imagePreview.src : null;
+            try {
+                if (faceImageInput.files[0])    faceImageData    = await readFile(faceImageInput.files[0]);
+                if (productImageInput.files[0]) productImageData = await readFile(productImageInput.files[0]);
+            } catch (e) { console.warn('Image read error:', e); }
+
+            // ── Step E: สร้างรูปก่อน ──────────────────────────────────────
+            if (overlayStepText) overlayStepText.innerText = 'กำลังสร้างรูปภาพ...';
+            statusText.innerText = 'กำลังสร้างรูปภาพ... รอสักครู่';
+            chrome.storage.local.set({ jobStatus: { running: true, step: 1, text: 'กำลังสร้างรูปภาพ...' } });
+
+            await new Promise((resolve, reject) => {
+                chrome.tabs.sendMessage(tab.id, {
+                    action: 'testImageGen',
+                    prompt: imagePrompt,
+                    faceImageData,
+                    productImageData
+                }, (response) => {
+                    if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+                    else resolve(response);
+                });
+            });
+
+            // ── Step F: รอ imageReady → โหลดรูปจาก storage ───────────────
+            if (overlayStepText) overlayStepText.innerText = 'รอรูปภาพสร้างเสร็จ...';
+            const generatedImageData = await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('Image generation timed out (5 min)')), 5 * 60 * 1000);
+                const listener = (message) => {
+                    if (message.action === 'imageReady') {
+                        clearTimeout(timeout);
+                        chrome.runtime.onMessage.removeListener(listener);
+                        chrome.storage.local.get('lastGeneratedImageData', (stored) => {
+                            resolve(stored.lastGeneratedImageData || null);
+                        });
+                    }
+                    if (message.action === 'videoError') {
+                        clearTimeout(timeout);
+                        chrome.runtime.onMessage.removeListener(listener);
+                        reject(new Error(message.error || 'Image generation failed'));
+                    }
+                };
+                chrome.runtime.onMessage.addListener(listener);
+            });
+
+            // ── Step G: สร้างวิดีโอ ───────────────────────────────────────
+            if (overlayStepText) overlayStepText.innerText = 'กำลังเริ่มสร้างวิดีโอ...';
+            statusText.innerText = 'กำลังสร้างวิดีโอ... รอสักครู่';
+            chrome.storage.local.set({ jobStatus: { running: true, step: 2, text: 'กำลังสร้างวิดีโอ...' } });
+
+            const videoData = {
+                productName,
+                ratio:    document.getElementById('ratioSelect').value,
+                quantity: document.getElementById('quantitySelect').value,
+                veoModel: document.getElementById('veoModelSelect').value,
+                camera:   'static',
+                script:   videoPrompt,
+                imageData: generatedImageData
+            };
+
+            chrome.tabs.sendMessage(tab.id, { action: "generateVideo", data: videoData }, (response) => {
                 if (chrome.runtime.lastError) {
                     console.error("Error sending message:", chrome.runtime.lastError);
                     statusText.innerText = "Error: Please refresh the Google Labs page";
@@ -958,7 +998,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusBar.classList.add('hidden');
                     if (automationOverlay) automationOverlay.classList.add('hidden');
                 } else {
-                    console.log("Run All started:", response);
+                    console.log("Run All — video gen started:", response);
                 }
             });
 
