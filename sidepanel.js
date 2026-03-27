@@ -823,6 +823,11 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.disabled = true;
 
         try {
+            // เปิด/สลับไป TikTok Studio ก่อนเสมอ
+            await ensureTikTokStudioOpen({ focus: true });
+            await new Promise(r => setTimeout(r, 4000));
+            await switchToTikTok();
+
             const { lastVideoUrl } = await chrome.storage.local.get('lastVideoUrl');
             if (!lastVideoUrl) {
                 alert('ไม่พบ Video URL — รัน Test Download ก่อน');
@@ -833,11 +838,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const caption   = document.getElementById('captionInput').value.trim();
             const productId = document.getElementById('productIdInput').value.trim();
-
-            // เปิด/สลับไป TikTok Studio
-            await ensureTikTokStudioOpen({ focus: true });
-            await new Promise(r => setTimeout(r, 4000));
-            await switchToTikTok();
 
             // หา tab
             const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
