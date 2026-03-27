@@ -314,14 +314,30 @@ async function clickUploadImage(imageData) {
     const blob = await res.blob();
     const file = new File([blob], "product_image.png", { type: "image/png" });
 
-    // รอปุ่ม Upload
+    // รอปุ่ม Upload — ถ้าไม่เจอให้กดปุ่ม เริ่ม ก่อน แล้วรออีกรอบ
     let btn = null;
     for (let i = 0; i < 20; i++) {
         btn = getElementByXPath(xpath);
         if (btn) break;
         await new Promise(r => setTimeout(r, 500));
     }
-    if (!btn) { console.warn("⚠️ Upload button not found"); return; }
+    if (!btn) {
+        console.warn("⚠️ Upload button not found — clicking เริ่ม button first");
+        const startBtn = document.querySelector('div[type="button"].sc-5496b68c-1');
+        if (startBtn) {
+            humanClick(startBtn);
+            console.log("✅ Clicked เริ่ม button");
+            await new Promise(r => setTimeout(r, 1000));
+        } else {
+            console.warn("⚠️ เริ่ม button not found either");
+        }
+        for (let i = 0; i < 20; i++) {
+            btn = getElementByXPath(xpath);
+            if (btn) break;
+            await new Promise(r => setTimeout(r, 500));
+        }
+    }
+    if (!btn) { console.warn("⚠️ Upload button still not found after เริ่ม click"); return; }
 
     // Block click event บน file input ด้วย capture phase (preventDefault)
     const blockPickerHandler = (e) => {
