@@ -801,13 +801,19 @@ async function setCaptionText(text) {
     editor.focus();
     await new Promise(r => setTimeout(r, 300));
 
-    // เลือกทั้งหมดด้วย Ctrl+A keyboard event
+    // เลือกทั้งหมด
     editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'a', code: 'KeyA', ctrlKey: true }));
     await new Promise(r => setTimeout(r, 200));
 
-    // ใส่ข้อความใหม่ผ่าน execCommand insertText (แทนที่ข้อความที่ select อยู่)
-    document.execCommand('insertText', false, text);
+    // ใช้ paste event แทน execCommand — Draft.js จัดการ paste เองโดยไม่ trigger React re-render
+    const dt = new DataTransfer();
+    dt.setData('text/plain', text);
+    editor.dispatchEvent(new ClipboardEvent('paste', {
+        clipboardData: dt,
+        bubbles: true,
+        cancelable: true
+    }));
     await new Promise(r => setTimeout(r, 300));
 
-    console.log("Caption set:", text.substring(0, 50) + (text.length > 50 ? '...' : ''));
+    console.log("Caption set via paste event:", text.substring(0, 50) + (text.length > 50 ? '...' : ''));
 }
