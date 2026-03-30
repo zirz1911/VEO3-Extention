@@ -722,15 +722,18 @@ async function waitForVideoReady() {
     const MAX_WAIT_MS = 5 * 60 * 1000; // 5 นาที
     const start = Date.now();
 
-    // จำจำนวน <video> ก่อนเริ่ม generate
+    // จำจำนวน <video> และ failure cards ก่อนเริ่ม generate
     const videoBefore = document.querySelectorAll('video').length;
+    const failBefore  = document.querySelectorAll('.sc-25d34a31-4').length;
 
     await new Promise((resolve, reject) => {
         const observer = new MutationObserver(() => {
-            // วิธี 0: เช็ค error "ล้มเหลว" ก่อน
-            const failEl = document.querySelector('.sc-25d34a31-4');
-            if (failEl) {
-                const errMsg = failEl.querySelector('.sc-25d34a31-2')?.textContent?.trim()
+            // วิธี 0: เช็ค error "ล้มเหลว" เฉพาะที่เพิ่มขึ้นใหม่ (ไม่ใช่ของเก่าค้างอยู่)
+            const failNow = document.querySelectorAll('.sc-25d34a31-4').length;
+            if (failNow > failBefore) {
+                const allFails = document.querySelectorAll('.sc-25d34a31-4');
+                const lastFail = allFails[allFails.length - 1];
+                const errMsg = lastFail?.querySelector('.sc-25d34a31-2')?.textContent?.trim()
                     || 'การสร้างวิดีโอล้มเหลว';
                 console.error('❌ Video generation failed:', errMsg);
                 observer.disconnect();
