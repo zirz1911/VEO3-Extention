@@ -229,6 +229,17 @@ Pacing: ${pacing}
 No text, captions, subtitles, or watermarks visible in the video.`;
 }
 
+function cleanCaption(text) {
+    return text
+        .replace(/^[*\s]*version\b[^\n]*/gim, '')
+        .replace(/^\*{1,2}[^\n]+?\*{1,2}:?\s*$/gm, '')
+        .replace(/^[A-Za-z0-9 \-–()\/]+:\s*$/gm, '')
+        .replace(/^[-–—=\s]+$/gm, '')
+        .replace(/\bvideo\b\s*$/im, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
 function buildStep3Prompt() {
     const platform   = document.getElementById('platform3')?.value || 'TikTok';
     const product    = document.getElementById('productName')?.value || 'product';
@@ -834,7 +845,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const caption   = document.getElementById('captionInput').value.trim();
+            const caption   = cleanCaption(document.getElementById('captionInput').value);
             const productId = document.getElementById('productIdInput').value.trim();
             await sendToTikTok(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId });
 
@@ -941,20 +952,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const rawCaption = await callAI(captionPromptText, selectedModel, chatgptKey, googleKey, 400);
             console.log('[Caption] rawCaption:', JSON.stringify(rawCaption));
             // ตัด label/header ที่ AI ส่งมาเกิน เช่น "Version A:", "**Short:**", บรรทัดว่าง ฯลฯ
-            const generatedCaption = rawCaption
-                // ตัด line ที่มีคำว่า version (เช่น **Version A - Short (TikTok/Reels):**)
-                .replace(/^[*\s]*version\b[^\n]*/gim, '')
-                // ตัด line ที่เป็น **...**: หรือ **...** (ใช้ lazy +? เพื่อกัน greedy กิน closing **)
-                .replace(/^\*{1,2}[^\n]+?\*{1,2}:?\s*$/gm, '')
-                // ตัด line ที่มีแต่ text ตามด้วย : (เช่น "Version A:" หรือ "Short:")
-                .replace(/^[A-Za-z0-9 \-–()\/]+:\s*$/gm, '')
-                // ตัดบรรทัดที่มีแต่ - หรือ — หรือ =
-                .replace(/^[-–—=\s]+$/gm, '')
-                // ตัดคำว่า "video" ที่ท้ายสุด (ติดมากับ product name)
-                .replace(/\bvideo\b\s*$/im, '')
-                // ตัดบรรทัดว่างซ้ำๆ เกิน 2 บรรทัด
-                .replace(/\n{3,}/g, '\n\n')
-                .trim();
+            const generatedCaption = cleanCaption(rawCaption);
             console.log('[Caption] generatedCaption:', JSON.stringify(generatedCaption));
             document.getElementById('captionInput').value = generatedCaption;
             saveFormData();
