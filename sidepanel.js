@@ -939,6 +939,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // ── Step B: Generate Caption with AI ──────────────────────────
             const captionPromptText = buildStep3Prompt();
             const rawCaption = await callAI(captionPromptText, selectedModel, chatgptKey, googleKey, 400);
+            console.log('[Caption] rawCaption:', JSON.stringify(rawCaption));
             // ตัด label/header ที่ AI ส่งมาเกิน เช่น "Version A:", "**Short:**", บรรทัดว่าง ฯลฯ
             const generatedCaption = rawCaption
                 // ตัด line ที่มีคำว่า version (เช่น **Version A - Short (TikTok/Reels):**)
@@ -954,6 +955,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // ตัดบรรทัดว่างซ้ำๆ เกิน 2 บรรทัด
                 .replace(/\n{3,}/g, '\n\n')
                 .trim();
+            console.log('[Caption] generatedCaption:', JSON.stringify(generatedCaption));
             document.getElementById('captionInput').value = generatedCaption;
             saveFormData();
 
