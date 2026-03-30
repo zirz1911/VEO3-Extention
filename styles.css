@@ -1010,6 +1010,8 @@ button,
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
+  padding: 4px 0 8px;
   margin-bottom: 4px;
 }
 
