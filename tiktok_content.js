@@ -798,19 +798,16 @@ async function setCaptionText(text) {
         return;
     }
 
-    // เขียน text ไป clipboard ก่อน
-    await navigator.clipboard.writeText(text);
-
     editor.focus();
     await new Promise(r => setTimeout(r, 300));
 
-    // เลือกทั้งหมดด้วย Ctrl+A
+    // เลือกทั้งหมดด้วย Ctrl+A keyboard event
     editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'a', code: 'KeyA', ctrlKey: true }));
     await new Promise(r => setTimeout(r, 200));
 
-    // Paste ด้วย Ctrl+V — Draft.js จัดการ paste เองโดยไม่ trigger audio re-render
-    editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'v', code: 'KeyV', ctrlKey: true }));
+    // ใส่ข้อความใหม่ผ่าน execCommand insertText (แทนที่ข้อความที่ select อยู่)
+    document.execCommand('insertText', false, text);
     await new Promise(r => setTimeout(r, 300));
 
-    console.log("Caption set via paste:", text.substring(0, 50) + (text.length > 50 ? '...' : ''));
+    console.log("Caption set:", text.substring(0, 50) + (text.length > 50 ? '...' : ''));
 }

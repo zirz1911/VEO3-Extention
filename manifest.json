@@ -9,6 +9,7 @@
     "scripting",
     "tabs",
     "storage",
+    "clipboardRead",
     "clipboardWrite"
   ],
   "host_permissions": [
