@@ -456,8 +456,11 @@ textarea:focus {
   gap: 8px;
 }
 
-.step-nav .btn-ghost { flex: 0 0 auto; }
-.step-nav .btn-primary { flex: 1; }
+.step-nav .btn,
+.step-nav .btn-ghost,
+.step-nav .btn-primary,
+.step-nav .btn-secondary,
+.step-nav .btn-run { flex: 1; min-width: 0; }
 
 /* Run summary checklist */
 .run-summary {
