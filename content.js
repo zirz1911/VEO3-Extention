@@ -1,5 +1,5 @@
 // content.js
-console.log("PD Auto VEO3.1 Content Script Loaded");
+console.log("Paji Content Script Loaded");
 
 // บน Orion/mobile chrome.runtime.sendMessage อาจ return undefined (callback-based)
 // แทนที่จะเป็น Promise → ใช้ safeSendMessage ทุกครั้ง
