@@ -725,8 +725,19 @@ async function waitForVideoReady() {
     // จำจำนวน <video> ก่อนเริ่ม generate
     const videoBefore = document.querySelectorAll('video').length;
 
-    await new Promise((resolve) => {
+    await new Promise((resolve, reject) => {
         const observer = new MutationObserver(() => {
+            // วิธี 0: เช็ค error "ล้มเหลว" ก่อน
+            const failEl = document.querySelector('.sc-25d34a31-4');
+            if (failEl) {
+                const errMsg = failEl.querySelector('.sc-25d34a31-2')?.textContent?.trim()
+                    || 'การสร้างวิดีโอล้มเหลว';
+                console.error('❌ Video generation failed:', errMsg);
+                observer.disconnect();
+                reject(new Error(errMsg));
+                return;
+            }
+
             // วิธี 1: มี <video> ใหม่โผล่ (วิดีโอพร้อมเล่น)
             const videoNow = document.querySelectorAll('video').length;
             if (videoNow > videoBefore) {
@@ -749,7 +760,7 @@ async function waitForVideoReady() {
             if (Date.now() - start > MAX_WAIT_MS) {
                 console.warn("⚠️ Timeout waiting for video");
                 observer.disconnect();
-                resolve();
+                reject(new Error('Timeout: วิดีโอใช้เวลานานเกินไป'));
             }
         });
 
