@@ -938,7 +938,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // ── Step B: Generate Caption with AI ──────────────────────────
             const captionPromptText = buildStep3Prompt();
-            const generatedCaption  = await callAI(captionPromptText, selectedModel, chatgptKey, googleKey, 400);
+            const rawCaption = await callAI(captionPromptText, selectedModel, chatgptKey, googleKey, 400);
+            // ตัด label/header ที่ AI ส่งมาเกิน เช่น "Version A:", "**Short:**", บรรทัดว่าง ฯลฯ
+            const generatedCaption = rawCaption
+                .replace(/^\*{0,2}version\s*[a-z]?\s*[-–:]?\s*[^*\n]*\*{0,2}\n?/gim, '')
+                .replace(/^\*{0,2}(short|long|tiktok|reels|caption)[^*\n]*\*{0,2}\n?/gim, '')
+                .replace(/^[-–—]+\s*\n/gim, '')
+                .trim();
             document.getElementById('captionInput').value = generatedCaption;
             saveFormData();
 
