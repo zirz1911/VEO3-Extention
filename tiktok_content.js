@@ -798,16 +798,19 @@ async function setCaptionText(text) {
         return;
     }
 
+    // เขียน text ไป clipboard ก่อน
+    await navigator.clipboard.writeText(text);
+
     editor.focus();
-    await new Promise(r => setTimeout(r, 500));
-
-    // ใช้ keyboard shortcut เลือกทั้งหมด แทน execCommand เพื่อลด re-render
-    editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'a', ctrlKey: true }));
-    await new Promise(r => setTimeout(r, 200));
-
-    // ใส่ข้อความผ่าน execCommand (Draft.js ต้องใช้วิธีนี้)
-    document.execCommand('insertText', false, text);
     await new Promise(r => setTimeout(r, 300));
 
-    console.log("Caption set:", text.substring(0, 50) + (text.length > 50 ? '...' : ''));
+    // เลือกทั้งหมดด้วย Ctrl+A
+    editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'a', code: 'KeyA', ctrlKey: true }));
+    await new Promise(r => setTimeout(r, 200));
+
+    // Paste ด้วย Ctrl+V — Draft.js จัดการ paste เองโดยไม่ trigger audio re-render
+    editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'v', code: 'KeyV', ctrlKey: true }));
+    await new Promise(r => setTimeout(r, 300));
+
+    console.log("Caption set via paste:", text.substring(0, 50) + (text.length > 50 ? '...' : ''));
 }
