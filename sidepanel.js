@@ -1,3 +1,8 @@
+// ── Task Management State ─────────────────────────────────────────────────
+let _taskEditMode = false;
+let _editingTaskId = null;
+let _editingSchedules = [];
+
 // ── Auto Split: เปิด TikTok Studio ตอน extension โหลด ──────────────────────
 async function ensureTikTokStudioOpen({ focus = false } = {}) {
     const TIKTOK_URL = 'https://www.tiktok.com/tiktokstudio/upload?from=creator_center';
@@ -910,6 +915,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Run All (Step 4) ──────────────────────────────────────────────────
     runAllBtn.addEventListener('click', async () => {
+        if (_taskEditMode) {
+            await saveTaskFromForm();
+            return;
+        }
         const selectedModel  = document.querySelector('input[name="flowModel"]:checked').value;
         const productName    = document.getElementById('productName').value || "Product";
 
@@ -1197,4 +1206,203 @@ Spoken Language: ${language}
     updateStep1Prompt();
     updateStep2Prompt();
     updateStep3Prompt();
+
+    // ── Task Management ────────────────────────────────────────────────────
+
+    function showTaskList() {
+        _taskEditMode = false;
+        _editingTaskId = null;
+        _editingSchedules = [];
+        document.getElementById('taskListView').classList.remove('hidden');
+        document.getElementById('flowUI').classList.add('hidden');
+        document.getElementById('taskFormHeader').classList.add('hidden');
+        document.getElementById('scheduleSection').classList.add('hidden');
+        runAllBtn.textContent = '🚀 เริ่มทำงาน';
+        renderTaskList();
+    }
+
+    function showTaskForm(task = null) {
+        _taskEditMode = true;
+        document.getElementById('taskListView').classList.add('hidden');
+        document.getElementById('flowUI').classList.remove('hidden');
+        document.getElementById('taskFormHeader').classList.remove('hidden');
+        document.getElementById('scheduleSection').classList.remove('hidden');
+        runAllBtn.textContent = '💾 บันทึก Task';
+
+        if (task) {
+            _editingTaskId = task.id;
+            _editingSchedules = JSON.parse(JSON.stringify(task.schedules || []));
+            document.getElementById('taskNameInput').value = task.name || '';
+            if (task.formData) restoreFormData(task.formData);
+        } else {
+            _editingTaskId = null;
+            _editingSchedules = [];
+            document.getElementById('taskNameInput').value = '';
+        }
+
+        renderScheduleSlots();
+        goToStep(1);
+    }
+
+    async function renderTaskList() {
+        const tasks = await tmGetTasks();
+        const container = document.getElementById('taskListContainer');
+        const empty     = document.getElementById('taskListEmpty');
+
+        if (tasks.length === 0) {
+            container.innerHTML = '';
+            empty.classList.remove('hidden');
+            return;
+        }
+        empty.classList.add('hidden');
+
+        const logs = await tmGetLogs();
+
+        container.innerHTML = tasks.map(task => {
+            const taskLogs   = logs.filter(l => l.taskId === task.id);
+            const lastLog    = taskLogs[taskLogs.length - 1];
+            const schedTimes = (task.schedules || []).filter(s => s.isEnabled).map(s => s.time).join(', ') || '-';
+            const badge      = task.isActive
+                ? '<span class="task-badge task-badge-active">● Active</span>'
+                : '<span class="task-badge task-badge-paused">⏸ Paused</span>';
+            const lastRun = lastLog
+                ? `${lastLog.status === 'success' ? '✅' : lastLog.status === 'running' ? '🔄' : '❌'} ${new Date(lastLog.triggeredAt).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}`
+                : 'ยังไม่เคยรัน';
+
+            return `<div class="task-card" data-id="${task.id}">
+                <div class="task-card-row">
+                    <span class="task-card-name">${task.name || 'ไม่มีชื่อ'}</span>
+                    ${badge}
+                </div>
+                <div class="task-card-meta">🛒 ${task.formData?.productName || '-'}</div>
+                <div class="task-card-meta">⏰ ${schedTimes}</div>
+                <div class="task-card-meta" style="font-size:11px">${lastRun}</div>
+                <div class="task-card-actions">
+                    <button class="btn btn-ghost task-edit-btn" data-id="${task.id}" style="flex:1;font-size:12px;padding:6px">✏️ แก้ไข</button>
+                    <button class="btn btn-ghost task-toggle-btn" data-id="${task.id}" style="flex:1;font-size:12px;padding:6px">${task.isActive ? '⏸ หยุด' : '▶ เปิด'}</button>
+                    <button class="btn btn-ghost task-delete-btn" data-id="${task.id}" style="flex:0 0 40px;font-size:12px;padding:6px;color:#EF4444;border-color:#EF444433">🗑</button>
+                </div>
+            </div>`;
+        }).join('');
+
+        container.querySelectorAll('.task-edit-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const all = await tmGetTasks();
+                const t = all.find(t => t.id === btn.dataset.id);
+                if (t) showTaskForm(t);
+            });
+        });
+        container.querySelectorAll('.task-toggle-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await tmToggleTaskActive(btn.dataset.id);
+                renderTaskList();
+            });
+        });
+        container.querySelectorAll('.task-delete-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (confirm('ลบ Task นี้?')) {
+                    await tmDeleteTask(btn.dataset.id);
+                    renderTaskList();
+                }
+            });
+        });
+    }
+
+    function renderScheduleSlots() {
+        const list = document.getElementById('scheduleSlotList');
+        if (!list) return;
+
+        if (_editingSchedules.length === 0) {
+            list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:4px 0">ยังไม่มีการตั้งเวลา</div>';
+            return;
+        }
+
+        list.innerHTML = _editingSchedules.map((s, i) => `
+            <div class="schedule-slot">
+                <span class="schedule-slot-time">${s.time}</span>
+                <input type="checkbox" class="sched-cb" data-idx="${i}" ${s.isEnabled ? 'checked' : ''} style="accent-color:var(--primary);cursor:pointer;width:16px;height:16px">
+                <span class="sched-cb-label">${s.isEnabled ? 'เปิด' : 'ปิด'}</span>
+                <button class="btn btn-ghost sched-del-btn" data-idx="${i}" style="width:auto;padding:4px 8px;font-size:12px;color:#EF4444;border-color:#EF444433;margin-left:auto">✕</button>
+            </div>
+        `).join('');
+
+        list.querySelectorAll('.sched-cb').forEach(cb => {
+            cb.addEventListener('change', () => {
+                _editingSchedules[+cb.dataset.idx].isEnabled = cb.checked;
+                renderScheduleSlots();
+            });
+        });
+        list.querySelectorAll('.sched-del-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                _editingSchedules.splice(+btn.dataset.idx, 1);
+                renderScheduleSlots();
+            });
+        });
+    }
+
+    async function saveTaskFromForm() {
+        const name = document.getElementById('taskNameInput')?.value?.trim();
+        if (!name) {
+            alert('กรุณาใส่ชื่อ Task');
+            document.getElementById('taskNameInput')?.focus();
+            return;
+        }
+
+        const facePreview = document.getElementById('faceImagePreview');
+        const imgPreview  = document.getElementById('imagePreview');
+        const fd = {
+            productName:   document.getElementById('productName')?.value || '',
+            ratio:         document.getElementById('ratioSelect')?.value || '9:16',
+            quantity:      document.getElementById('quantitySelect')?.value || '1',
+            veoModel:      document.getElementById('veoModelSelect')?.value || '',
+            script:        document.getElementById('scriptInput')?.value || '',
+            caption:       document.getElementById('captionInput')?.value || '',
+            productId:     document.getElementById('productIdInput')?.value || '',
+            captionScript: document.getElementById('captionScript')?.value || '',
+            gender1:       document.querySelector('input[name="gender1"]:checked')?.value || 'male',
+            action1:       document.getElementById('action1')?.value || '',
+            location1:     document.getElementById('location1')?.value || '',
+            outfit1:       document.getElementById('outfit1')?.value || '',
+            mood1:         document.getElementById('mood1')?.value || '',
+            gender2:       document.querySelector('input[name="gender2"]:checked')?.value || 'male',
+            action2:       document.getElementById('action2')?.value || '',
+            platform2:     document.getElementById('platform2')?.value || 'TikTok',
+            pacing2:       document.getElementById('pacing2')?.value || '',
+            platform3:     document.getElementById('platform3')?.value || 'TikTok',
+            audience3:     document.getElementById('audience3')?.value || '',
+            hookStyle3:    document.getElementById('hookStyle3')?.value || '',
+            flowModel:     document.querySelector('input[name="flowModel"]:checked')?.value || 'gemini',
+            faceDataUrl:   (facePreview && !facePreview.classList.contains('hidden') && facePreview.src) ? facePreview.src : null,
+            imageDataUrl:  (imgPreview && !imgPreview.classList.contains('hidden') && imgPreview.src) ? imgPreview.src : null,
+        };
+
+        const now = Date.now();
+        const existing = _editingTaskId ? (await tmGetTasks()).find(t => t.id === _editingTaskId) : null;
+        const task = {
+            id:        _editingTaskId || `task_${now}`,
+            name,
+            isActive:  existing ? existing.isActive : true,
+            createdAt: existing ? existing.createdAt : now,
+            updatedAt: now,
+            formData:  fd,
+            schedules: _editingSchedules
+        };
+
+        await tmSaveTask(task);
+        showTaskList();
+    }
+
+    // ── Wire up task buttons ───────────────────────────────────────────────
+    document.getElementById('addTaskBtn').addEventListener('click', () => showTaskForm());
+    document.getElementById('backToTaskListBtn').addEventListener('click', showTaskList);
+    document.getElementById('addScheduleSlotBtn').addEventListener('click', () => {
+        const time = document.getElementById('newScheduleTime').value;
+        if (!time) return;
+        if (_editingSchedules.some(s => s.time === time)) { alert('มีเวลานี้อยู่แล้ว'); return; }
+        _editingSchedules.push({ id: `sched_${Date.now()}`, time, isEnabled: true });
+        renderScheduleSlots();
+    });
+
+    // ── Init: show task list ───────────────────────────────────────────────
+    showTaskList();
 });

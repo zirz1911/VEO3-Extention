@@ -1,3 +1,6 @@
+// ── Import shared task-manager functions ──────────────────────────────────
+importScripts('task-manager.js');
+
 // Default popup is set in manifest.json (works on all platforms by default)
 // On desktop: clear popup and use side panel instead
 
@@ -29,6 +32,9 @@ async function applyUiMode() {
         await chrome.action.setPopup({ popup: '' });
         await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
         console.log('🖥️ Desktop mode: side panel');
+
+        // Scheduler alarm (ทุก 1 นาที)
+        chrome.alarms.create('schedulerTick', { periodInMinutes: 1 });
 
     } catch (e) {
         console.warn('⚠️ applyUiMode error — falling back to popup:', e);
@@ -75,3 +81,261 @@ chrome.runtime.onMessage.addListener((message) => {
         });
     }
 });
+
+// ── Scheduler Engine ─────────────────────────────────────────────────────
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+    if (alarm.name === 'schedulerTick') {
+        await runSchedulerTick().catch(e => console.error('[Scheduler] tick error:', e));
+    }
+});
+
+async function runSchedulerTick() {
+    const now = new Date();
+    const HH  = String(now.getHours()).padStart(2, '0');
+    const MM  = String(now.getMinutes()).padStart(2, '0');
+    const currentTime = `${HH}:${MM}`;
+
+    const { tasks = [], scheduleLogs = [] } = await chrome.storage.local.get(['tasks', 'scheduleLogs']);
+
+    for (const task of tasks) {
+        if (!task.isActive) continue;
+        for (const schedule of (task.schedules || [])) {
+            if (!schedule.isEnabled) continue;
+            if (schedule.time !== currentTime) continue;
+            if (tmHasRunToday(scheduleLogs, task.id, schedule.id)) continue;
+
+            const logEntry = {
+                id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                taskId: task.id,
+                scheduleId: schedule.id,
+                scheduledTime: schedule.time,
+                triggeredAt: Date.now(),
+                finishedAt: null,
+                status: 'running',
+                error: null
+            };
+            await tmAppendLog(logEntry);
+            console.log(`[Scheduler] Starting task "${task.name}" at ${schedule.time}`);
+            runTaskJob(task, logEntry.id).catch(async (err) => {
+                console.error('[Scheduler] Job failed:', err);
+                await tmUpdateLog(logEntry.id, { status: 'failed', error: err.message, finishedAt: Date.now() });
+            });
+        }
+    }
+}
+
+async function runTaskJob(task, logId) {
+    const fd = task.formData || {};
+    try {
+        const keys = await chrome.storage.local.get(['chatgptApiKey', 'googleApiKey']);
+        const model = fd.flowModel || 'gemini';
+
+        // Generate caption
+        const rawCaption = await bgCallAI(bgBuildCaptionPrompt(fd), model, keys.chatgptApiKey, keys.googleApiKey, 400);
+        const caption = tmCleanCaption(rawCaption);
+
+        // Find labs.google tab
+        const flowTabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
+        if (flowTabs.length === 0) throw new Error('ไม่พบ labs.google tab — กรุณาเปิด Google Labs ก่อน');
+        const tabId = flowTabs[0].id;
+        await chrome.tabs.update(tabId, { active: true });
+        await new Promise(r => setTimeout(r, 500));
+
+        // Image generation
+        await new Promise((resolve, reject) => {
+            chrome.tabs.sendMessage(tabId, {
+                action: 'testImageGen',
+                prompt: bgBuildImagePrompt(fd),
+                faceImageData: fd.faceDataUrl || null,
+                productImageData: fd.imageDataUrl || null
+            }, (res) => {
+                if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+                else resolve(res);
+            });
+        });
+
+        // Wait imageReady
+        const generatedImageData = await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                chrome.runtime.onMessage.removeListener(imgL);
+                reject(new Error('Image generation timed out'));
+            }, 5 * 60 * 1000);
+            const imgL = (msg) => {
+                if (msg.action === 'imageReady') {
+                    clearTimeout(timer);
+                    chrome.runtime.onMessage.removeListener(imgL);
+                    chrome.storage.local.get('lastGeneratedImageData', r => resolve(r.lastGeneratedImageData || null));
+                }
+                if (msg.action === 'videoError') {
+                    clearTimeout(timer);
+                    chrome.runtime.onMessage.removeListener(imgL);
+                    reject(new Error(msg.error || 'Image failed'));
+                }
+            };
+            chrome.runtime.onMessage.addListener(imgL);
+        });
+
+        // Video generation
+        await new Promise((resolve, reject) => {
+            chrome.tabs.sendMessage(tabId, {
+                action: 'generateVideo',
+                data: {
+                    productName: fd.productName || 'product',
+                    ratio: fd.ratio || '9:16',
+                    quantity: fd.quantity || '1',
+                    veoModel: fd.veoModel || '',
+                    camera: 'static',
+                    script: bgBuildVideoPrompt(fd),
+                    imageData: generatedImageData
+                }
+            }, (res) => {
+                if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+                else resolve(res);
+            });
+        });
+
+        // Wait videoReady
+        await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                chrome.runtime.onMessage.removeListener(vidL);
+                reject(new Error('Video generation timed out'));
+            }, 10 * 60 * 1000);
+            const vidL = (msg) => {
+                if (msg.action === 'videoReady') {
+                    clearTimeout(timer);
+                    chrome.runtime.onMessage.removeListener(vidL);
+                    resolve();
+                }
+                if (msg.action === 'videoError') {
+                    clearTimeout(timer);
+                    chrome.runtime.onMessage.removeListener(vidL);
+                    reject(new Error(msg.error || 'Video failed'));
+                }
+            };
+            chrome.runtime.onMessage.addListener(vidL);
+        });
+
+        // TikTok upload
+        const { lastVideoUrl } = await chrome.storage.local.get('lastVideoUrl');
+        if (lastVideoUrl) {
+            const TIKTOK_URL = 'https://www.tiktok.com/tiktokstudio/upload?from=creator_center';
+            const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
+            let tiktokTabId;
+            if (tiktokTabs.length > 0) {
+                tiktokTabId = tiktokTabs[0].id;
+                await chrome.tabs.update(tiktokTabId, { active: true });
+            } else {
+                const newTab = await chrome.tabs.create({ url: TIKTOK_URL, active: true });
+                tiktokTabId = newTab.id;
+                await new Promise(r => setTimeout(r, 5000));
+            }
+            try { await chrome.scripting.executeScript({ target: { tabId: tiktokTabId }, files: ['tiktok_content.js'] }); } catch (_) {}
+            await new Promise(r => setTimeout(r, 1500));
+            await new Promise((resolve, reject) => {
+                chrome.tabs.sendMessage(tiktokTabId, {
+                    action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId: fd.productId || ''
+                }, (res) => {
+                    if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+                    else resolve(res);
+                });
+            });
+        }
+
+        await tmUpdateLog(logId, { status: 'success', finishedAt: Date.now() });
+        console.log(`[Scheduler] Task "${task.name}" completed successfully`);
+
+    } catch (err) {
+        await tmUpdateLog(logId, { status: 'failed', error: err.message, finishedAt: Date.now() });
+        throw err;
+    }
+}
+
+async function bgCallAI(prompt, model, chatgptKey, googleKey, maxTokens = 300) {
+    if (model === 'chatgpt') {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${chatgptKey}` },
+            body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens })
+        });
+        const data = await res.json();
+        if (data.choices?.length > 0) return data.choices[0].message.content.trim();
+        throw new Error('ChatGPT API Error');
+    }
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${googleKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    const data = await res.json();
+    if (data.candidates?.length > 0 && data.candidates[0].content) return data.candidates[0].content.parts[0].text.trim();
+    throw new Error('Gemini API Error');
+}
+
+function bgBuildImagePrompt(fd) {
+    const gender = fd.gender1 === 'female' ? 'female' : 'male';
+    return `Create a realistic candid smartphone photo of a ${gender} Thai person,
+using the attached face reference for facial structure and features.
+
+The person is ${fd.action1 || 'holding'} the ${fd.productName || 'product'} shown in the attached product image.
+
+Setting: ${fd.location1 || ''}
+Clothing: ${fd.outfit1 || ''}
+Expression: ${fd.mood1 || ''}
+
+Camera: shot on smartphone, auto white balance, slight noise in shadows,
+not professionally lit. Slightly off-center framing, natural ambient light only.
+
+Style: realistic, not retouched, visible skin texture, no studio lighting,
+no perfect symmetry, JPEG compression artifacts, warm Thai daylight tone.
+Photo looks like a genuine Shopee or TikTok customer review image.
+
+--- STRICT RULES ---
+- The product MUST match the attached product photo exactly in shape, color, size, and detail.
+- Background must contain ONLY objects that naturally belong in ${fd.location1 || 'the setting'}.
+- Hands and fingers must look natural. 5 fingers per hand, proper grip.
+- No text, watermark, or logo unless specified.`;
+}
+
+function bgBuildVideoPrompt(fd) {
+    const gender = fd.gender2 === 'female' ? 'female' : 'male';
+    return `A ${gender} Thai person,
+is ${fd.action2 || 'รีวิวสินค้าต่อหน้ากล้อง'} the ${fd.productName || 'product'}.
+
+Location: สุ่มตามประเภทตามสินค้า
+Script/Key Message: ${fd.script || ''}
+End with CTA: "สั่งซื้อได้เลย"
+
+Style: UGC smartphone footage, handheld slightly shaky,
+natural Thai daylight, no cinematic filter, no heavy color grading.
+Looks like a real person filming themselves for ${fd.platform2 || 'TikTok'}.
+
+Pacing: ${fd.pacing2 || ''}
+
+No text, captions, subtitles, or watermarks visible in the video.`;
+}
+
+function bgBuildCaptionPrompt(fd) {
+    return `You are a Thai social media copywriter who writes casual, relatable
+product captions for ${fd.platform3 || 'TikTok'}.
+
+Product: ${fd.productName || 'product'}
+Script/Key Message: ${fd.captionScript || fd.script || ''}
+Target Audience: ${fd.audience3 || ''}
+
+--- OUTPUT ---
+Write ONLY the caption text. No labels, no headers, no version names, no explanations.
+Just the caption itself, ready to paste directly.
+
+Requirements:
+- 2-3 lines max
+- Start with ${fd.hookStyle3 || 'คำถาม'}
+- End with CTA
+- Include 2-5 hashtags (Thai + English mixed)
+
+--- RULES ---
+- เขียนภาษาไทยแบบพูด ไม่เป็นทางการ
+- ห้ามใช้คำว่า "สุดยอด" "เหลือเชื่อ" "ดีที่สุด"
+- ใช้คำแบบคนรีวิวจริง
+- ห้ามมี label หรือ header ใดๆ ทั้งสิ้น`;
+}

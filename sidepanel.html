@@ -38,8 +38,32 @@
       </button>
     </header>
 
+    <!-- TASK LIST VIEW -->
+    <div id="taskListView">
+      <div class="task-list-header">
+        <span style="font-size:14px;font-weight:600;color:var(--text-main)">📋 Tasks</span>
+        <button id="addTaskBtn" class="btn btn-primary" style="width:auto;padding:8px 14px;font-size:12px">+ เพิ่ม Task</button>
+      </div>
+      <div id="taskListContainer" style="display:flex;flex-direction:column;gap:10px;margin-top:12px"></div>
+      <div id="taskListEmpty" class="hidden" style="text-align:center;padding:40px 0;color:var(--text-muted)">
+        <div style="font-size:36px;margin-bottom:8px">📋</div>
+        <div>ยังไม่มี Task</div>
+        <div style="font-size:12px;margin-top:4px">กด "+ เพิ่ม Task" เพื่อเริ่มต้น</div>
+      </div>
+    </div>
+
     <!-- FLOW UI SECTION -->
-    <div id="flowUI">
+    <div id="flowUI" class="hidden">
+
+      <!-- Task Form Header (shown in task-edit mode only) -->
+      <div id="taskFormHeader" class="hidden">
+        <button id="backToTaskListBtn" class="btn btn-ghost" style="width:auto;margin-bottom:10px;padding:6px 12px;font-size:12px">← กลับ Tasks</button>
+        <div class="form-group" style="margin-bottom:8px">
+          <label>ชื่อ Task</label>
+          <input type="text" id="taskNameInput" placeholder="เช่น Solar Panel Review">
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border-color);margin-bottom:8px">
+      </div>
 
       <!-- Global Inputs -->
       <div class="global-inputs">
@@ -369,6 +393,16 @@
           <div class="run-summary-item">📤 Upload to TikTok Studio</div>
         </div>
 
+        <!-- Schedule Section (shown in task-edit mode only) -->
+        <div id="scheduleSection" class="hidden" style="margin-top:8px">
+          <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:6px">⏰ ตั้งเวลาอัตโนมัติ</label>
+          <div id="scheduleSlotList"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+            <input type="time" id="newScheduleTime" value="09:00" style="flex:1">
+            <button id="addScheduleSlotBtn" class="btn btn-ghost" style="width:auto;padding:8px 12px;font-size:12px;flex-shrink:0">+ เพิ่ม</button>
+          </div>
+        </div>
+
         <div class="actions step-nav" style="margin-top: 12px;">
           <button id="backStep3Btn" class="btn btn-ghost">← ก่อนหน้า</button>
           <button id="runAllBtn" class="btn btn-run">
@@ -557,6 +591,7 @@
       document.body.classList.add('popup-mode');
     }
   </script>
+  <script src="task-manager.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 
