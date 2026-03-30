@@ -9,8 +9,16 @@ async function ensureTikTokStudioOpen({ focus = false } = {}) {
 
     const existing = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
     if (existing.length > 0) {
-        console.log('TikTok Studio already open');
-        if (focus) await chrome.tabs.update(existing[0].id, { active: true });
+        const tab = existing[0];
+        if (!tab.url?.includes('/upload')) {
+            // อยู่หน้าอื่นของ TikTok Studio — navigate ไปหน้า upload
+            console.log('TikTok Studio open but not on upload page — navigating...');
+            await chrome.tabs.update(tab.id, { url: TIKTOK_URL, active: true });
+            await waitForTabComplete(tab.id);
+        } else if (focus) {
+            await chrome.tabs.update(tab.id, { active: true });
+        }
+        console.log('TikTok Studio ready on upload page');
         return;
     }
 
@@ -124,8 +132,9 @@ chrome.runtime.onMessage.addListener((message) => {
                 }
 
                 statusText.innerText = "กำลังอัปโหลดไป TikTok...";
-                sendToTikTok(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId })
-                    .catch(err => { statusText.innerText = "TikTok Error: " + err.message; });
+                await sendToTikTok(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId });
+                statusText.innerText = "อัปโหลดเสร็จ! กลับไปหน้า Flow...";
+                await switchToFlow();
             } catch (err) {
                 console.error("TikTok flow error:", err);
                 statusText.innerText = "Error: " + err.message;

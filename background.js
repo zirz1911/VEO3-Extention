@@ -140,6 +140,7 @@ async function runTaskJob(task, logId) {
         if (flowTabs.length === 0) throw new Error('ไม่พบ labs.google tab — กรุณาเปิด Google Labs ก่อน');
         const tabId = flowTabs[0].id;
         await chrome.tabs.update(tabId, { active: true });
+        try { await chrome.windows.update(flowTabs[0].windowId, { focused: true }); } catch (_) {}
         await new Promise(r => setTimeout(r, 500));
 
         // Image generation
@@ -224,7 +225,14 @@ async function runTaskJob(task, logId) {
             let tiktokTabId;
             if (tiktokTabs.length > 0) {
                 tiktokTabId = tiktokTabs[0].id;
-                await chrome.tabs.update(tiktokTabId, { active: true });
+                if (!tiktokTabs[0].url?.includes('/upload')) {
+                    // อยู่หน้าอื่นของ TikTok Studio — navigate ไปหน้า upload
+                    console.log('[Scheduler] TikTok tab not on upload page — navigating...');
+                    await chrome.tabs.update(tiktokTabId, { url: TIKTOK_URL, active: true });
+                    await new Promise(r => setTimeout(r, 5000));
+                } else {
+                    await chrome.tabs.update(tiktokTabId, { active: true });
+                }
             } else {
                 const newTab = await chrome.tabs.create({ url: TIKTOK_URL, active: true });
                 tiktokTabId = newTab.id;
@@ -240,6 +248,13 @@ async function runTaskJob(task, logId) {
                     else resolve(res);
                 });
             });
+
+            // กลับไปหน้า Flow หลังอัปโหลดเสร็จ
+            const flowTabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
+            if (flowTabs.length > 0) {
+                await chrome.tabs.update(flowTabs[0].id, { active: true });
+                console.log('[Scheduler] Switched back to Flow after upload');
+            }
         }
 
         await tmUpdateLog(logId, { status: 'success', finishedAt: Date.now() });
