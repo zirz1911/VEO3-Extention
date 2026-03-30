@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
@@ -17,9 +17,9 @@
       <div class="logo">
         <button class="menu-btn" id="menuBtn">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M2 7L22 7" stroke="#F97316" stroke-width="2" stroke-linecap="round" />
-            <path d="M2 12L22 12" stroke="#F97316" stroke-width="2" stroke-linecap="round" />
-            <path d="M2 17L22 17" stroke="#F97316" stroke-width="2" stroke-linecap="round" />
+            <path d="M2 7L22 7" stroke="oklch(0.85 0.20 142)" stroke-width="2" stroke-linecap="round" />
+            <path d="M2 12L22 12" stroke="oklch(0.85 0.20 142)" stroke-width="2" stroke-linecap="round" />
+            <path d="M2 17L22 17" stroke="oklch(0.85 0.20 142)" stroke-width="2" stroke-linecap="round" />
           </svg>
         </button>
         <h1>Gen Flow Flow</h1>
@@ -207,7 +207,7 @@
           <button id="copyPrompt1Btn" class="btn btn-secondary">
             <span class="icon">📋</span> Copy
           </button>
-          <button id="testImageBtn" class="btn btn-ghost">
+          <button id="testImageBtn" class="btn btn-ghost hidden">
             🧪 Test Image
           </button>
           <button id="goStep2Btn" class="btn btn-primary">
@@ -318,7 +318,7 @@
 
         <div class="actions step-nav">
           <button id="backStep1Btn" class="btn btn-ghost">← ก่อนหน้า</button>
-          <button id="testVideoBtn" class="btn btn-ghost">🧪 Test Video</button>
+          <button id="testVideoBtn" class="btn btn-ghost hidden">🧪 Test Video</button>
           <button id="goStep3Btn" class="btn btn-primary">ถัดไป →</button>
         </div>
       </div>
@@ -416,8 +416,8 @@
     <!-- /flowUI -->
 
     <div style="display:flex; gap:6px; padding: 6px 12px;">
-      <button id="testDownloadBtn" class="btn btn-ghost" style="flex:1">🧪 Test Download</button>
-      <button id="testUploadBtn" class="btn btn-ghost" style="flex:1">📤 Test TikTok</button>
+      <button id="testDownloadBtn" class="btn btn-ghost hidden" style="flex:1">🧪 Test Download</button>
+      <button id="testUploadBtn" class="btn btn-ghost hidden" style="flex:1">📤 Test TikTok</button>
     </div>
 
     <!-- SORA UI SECTION -->

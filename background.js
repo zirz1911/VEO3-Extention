@@ -327,7 +327,10 @@ Looks like a real person filming themselves for ${fd.platform2 || 'TikTok'}.
 
 Pacing: ${fd.pacing2 || ''}
 
-No text, captions, subtitles, or watermarks visible in the video.`;
+--- STRICT RULES ---
+- NO text, words, letters, numbers, subtitles, captions, overlays, or watermarks of any kind visible in the video.
+- Do NOT render any on-screen graphics, title cards, or burnt-in captions.
+- The video must be completely clean — visuals only, zero text.`;
 }
 
 function bgBuildCaptionPrompt(fd) {
