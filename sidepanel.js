@@ -1274,9 +1274,11 @@ Spoken Language: ${language}
             const taskLogs   = logs.filter(l => l.taskId === task.id);
             const lastLog    = taskLogs[taskLogs.length - 1];
             const schedTimes = (task.schedules || []).filter(s => s.isEnabled).map(s => s.time).join(', ') || '-';
-            const badge      = task.isActive
-                ? '<span class="task-badge task-badge-active">● Active</span>'
-                : '<span class="task-badge task-badge-paused">⏸ Paused</span>';
+            const badge = `<label class="task-toggle" title="${task.isActive ? 'คลิกเพื่อหยุด' : 'คลิกเพื่อเปิด'}">
+                <input type="checkbox" class="task-toggle-input" data-id="${task.id}" ${task.isActive ? 'checked' : ''}>
+                <span class="task-toggle-track"><span class="task-toggle-thumb"></span></span>
+                <span class="task-toggle-label">${task.isActive ? 'Active' : 'Paused'}</span>
+            </label>`;
             const lastRun = lastLog
                 ? `${lastLog.status === 'success' ? '✅' : lastLog.status === 'running' ? '🔄' : '❌'} ${new Date(lastLog.triggeredAt).toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}`
                 : 'ยังไม่เคยรัน';
@@ -1290,9 +1292,8 @@ Spoken Language: ${language}
                 <div class="task-card-meta">⏰ ${schedTimes}</div>
                 <div class="task-card-meta" style="font-size:11px">${lastRun}</div>
                 <div class="task-card-actions">
-                    <button class="btn btn-ghost task-edit-btn" data-id="${task.id}" style="flex:1;font-size:12px;padding:6px">✏️ แก้ไข</button>
-                    <button class="btn btn-ghost task-toggle-btn" data-id="${task.id}" style="flex:1;font-size:12px;padding:6px">${task.isActive ? '⏸ หยุด' : '▶ เปิด'}</button>
-                    <button class="btn btn-ghost task-delete-btn" data-id="${task.id}" style="flex:0 0 40px;font-size:12px;padding:6px;color:#EF4444;border-color:#EF444433">🗑</button>
+                    <button class="btn btn-ghost task-edit-btn" data-id="${task.id}" style="flex:1;font-size:11px;padding:6px">✏️ แก้ไข</button>
+                    <button class="btn btn-ghost task-delete-btn" data-id="${task.id}" style="flex:0 0 40px;font-size:11px;padding:6px;color:#EF4444;border-color:#EF444433">🗑</button>
                 </div>
             </div>`;
         }).join('');
@@ -1304,9 +1305,9 @@ Spoken Language: ${language}
                 if (t) showTaskForm(t);
             });
         });
-        container.querySelectorAll('.task-toggle-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                await tmToggleTaskActive(btn.dataset.id);
+        container.querySelectorAll('.task-toggle-input').forEach(cb => {
+            cb.addEventListener('change', async () => {
+                await tmToggleTaskActive(cb.dataset.id);
                 renderTaskList();
             });
         });
