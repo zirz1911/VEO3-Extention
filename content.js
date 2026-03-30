@@ -13,6 +13,10 @@ function safeSendMessage(msg) {
 let _jobCancelled = false;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'ping') {
+        sendResponse({ pong: true });
+        return;
+    }
     if (request.action === "generateVideo") {
         console.log("Received generate request:", request.data);
         _jobCancelled = false;

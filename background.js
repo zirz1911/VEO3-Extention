@@ -125,6 +125,41 @@ async function runSchedulerTick() {
     }
 }
 
+// รอ tab โหลดเสร็จ (รองรับกรณี tab ถูก discard แล้วโหลดใหม่)
+function bgWaitForTabComplete(tabId, timeoutMs = 30000) {
+    return new Promise((resolve) => {
+        chrome.tabs.get(tabId, (tab) => {
+            if (tab && tab.status === 'complete') { resolve(); return; }
+            const listener = (id, info) => {
+                if (id === tabId && info.status === 'complete') {
+                    chrome.tabs.onUpdated.removeListener(listener);
+                    resolve();
+                }
+            };
+            chrome.tabs.onUpdated.addListener(listener);
+            setTimeout(() => { chrome.tabs.onUpdated.removeListener(listener); resolve(); }, timeoutMs);
+        });
+    });
+}
+
+// Ping content script จนกว่าจะตอบ (retry ถ้า tab เพิ่งโหลดใหม่)
+async function bgWaitForContentScript(tabId, retries = 20, delayMs = 1500) {
+    for (let i = 0; i < retries; i++) {
+        const ok = await new Promise(resolve => {
+            chrome.tabs.sendMessage(tabId, { action: 'ping' }, res => {
+                resolve(!chrome.runtime.lastError && res?.pong === true);
+            });
+        });
+        if (ok) {
+            console.log(`[Scheduler] Content script ready (attempt ${i + 1})`);
+            return;
+        }
+        console.log(`[Scheduler] Waiting for content script... (${i + 1}/${retries})`);
+        await new Promise(r => setTimeout(r, delayMs));
+    }
+    throw new Error('Content script ไม่ตอบสนอง — กรุณาโหลดหน้า labs.google ใหม่');
+}
+
 async function runTaskJob(task, logId) {
     const fd = task.formData || {};
     try {
@@ -141,7 +176,8 @@ async function runTaskJob(task, logId) {
         const tabId = flowTabs[0].id;
         await chrome.tabs.update(tabId, { active: true });
         try { await chrome.windows.update(flowTabs[0].windowId, { focused: true }); } catch (_) {}
-        await new Promise(r => setTimeout(r, 500));
+        await bgWaitForTabComplete(tabId);
+        await bgWaitForContentScript(tabId);
 
         // Image generation
         await new Promise((resolve, reject) => {
