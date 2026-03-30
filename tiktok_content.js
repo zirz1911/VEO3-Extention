@@ -118,7 +118,8 @@ async function uploadVideoToTikTok(videoUrl, request_caption, productId) {
 
     if (request_caption) {
         updateTikTokBanner('กำลังใส่ Caption...');
-        await new Promise(r => setTimeout(r, 2000));
+        // รอให้ TikTok initialize audio/video player เสร็จก่อน
+        await new Promise(r => setTimeout(r, 5000));
         await setCaptionText(request_caption);
     }
 
@@ -798,11 +799,15 @@ async function setCaptionText(text) {
     }
 
     editor.focus();
+    await new Promise(r => setTimeout(r, 500));
+
+    // ใช้ keyboard shortcut เลือกทั้งหมด แทน execCommand เพื่อลด re-render
+    editor.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'a', ctrlKey: true }));
     await new Promise(r => setTimeout(r, 200));
 
-    document.execCommand('selectAll', false, null);
-    await new Promise(r => setTimeout(r, 100));
+    // ใส่ข้อความผ่าน execCommand (Draft.js ต้องใช้วิธีนี้)
     document.execCommand('insertText', false, text);
+    await new Promise(r => setTimeout(r, 300));
 
     console.log("Caption set:", text.substring(0, 50) + (text.length > 50 ? '...' : ''));
 }
