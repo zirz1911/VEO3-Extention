@@ -243,23 +243,21 @@ Product: ${product}
 Script/Key Message: ${script}
 Target Audience: ${audience}
 
---- OUTPUT FORMAT ---
+--- OUTPUT ---
+Write ONLY the caption text. No labels, no headers, no version names, no explanations.
+Just the caption itself, ready to paste directly.
 
-Write 1 caption variations:
-
-**Version A - Short (TikTok/Reels):**
+Requirements:
 - 2-3 lines max
 - Start with ${hookStyle}
 - End with CTA
-- Include 2-5 hashtags mixing:
-  ${product} related + trending Thai hashtags + niche community hashtags
+- Include 2-5 hashtags (Thai + English mixed)
 
 --- RULES ---
 - เขียนภาษาไทยแบบพูด ไม่เป็นทางการ
-- ห้ามใช้คำว่า "สุดยอด" "เหลือเชื่อ" "ดีที่สุด" (ฟังเหมือนโฆษณา)
+- ห้ามใช้คำว่า "สุดยอด" "เหลือเชื่อ" "ดีที่สุด"
 - ใช้คำแบบคนรีวิวจริง เช่น "ใช้มาเดือนนึงแล้ว" "ตอนแรกไม่แน่ใจ" "บอกเลยว่าคุ้ม"
-- Hashtag ต้องมีทั้งไทยและอังกฤษ
-- ห้ามเกินจำนวน hashtag ที่กำหนด`;
+- ห้ามมี label หรือ header ใดๆ ทั้งสิ้น`;
 }
 
 // ── DOMContentLoaded ──────────────────────────────────────────────────────
