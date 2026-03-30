@@ -941,9 +941,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const rawCaption = await callAI(captionPromptText, selectedModel, chatgptKey, googleKey, 400);
             // ตัด label/header ที่ AI ส่งมาเกิน เช่น "Version A:", "**Short:**", บรรทัดว่าง ฯลฯ
             const generatedCaption = rawCaption
-                .replace(/^\*{0,2}version\s*[a-z]?\s*[-–:]?\s*[^*\n]*\*{0,2}\n?/gim, '')
-                .replace(/^\*{0,2}(short|long|tiktok|reels|caption)[^*\n]*\*{0,2}\n?/gim, '')
-                .replace(/^[-–—]+\s*\n/gim, '')
+                // ตัด line ที่มีคำว่า version (เช่น **Version A - Short (TikTok/Reels):**)
+                .replace(/^[*\s]*version\b[^\n]*/gim, '')
+                // ตัด line ที่เป็น **...:** หรือ **...**
+                .replace(/^\*{1,2}[^\n]+\*{1,2}:?\s*$/gm, '')
+                // ตัดบรรทัดที่มีแต่ - หรือ — หรือ =
+                .replace(/^[-–—=\s]+$/gm, '')
+                // ตัดคำว่า "video" ที่ท้ายสุด (ติดมากับ product name)
+                .replace(/\bvideo\b\s*$/im, '')
+                // ตัดบรรทัดว่างซ้ำๆ เกิน 2 บรรทัด
+                .replace(/\n{3,}/g, '\n\n')
                 .trim();
             document.getElementById('captionInput').value = generatedCaption;
             saveFormData();
