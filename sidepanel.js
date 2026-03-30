@@ -943,8 +943,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const generatedCaption = rawCaption
                 // ตัด line ที่มีคำว่า version (เช่น **Version A - Short (TikTok/Reels):**)
                 .replace(/^[*\s]*version\b[^\n]*/gim, '')
-                // ตัด line ที่เป็น **...:** หรือ **...**
-                .replace(/^\*{1,2}[^\n]+\*{1,2}:?\s*$/gm, '')
+                // ตัด line ที่เป็น **...**: หรือ **...** (ใช้ lazy +? เพื่อกัน greedy กิน closing **)
+                .replace(/^\*{1,2}[^\n]+?\*{1,2}:?\s*$/gm, '')
+                // ตัด line ที่มีแต่ text ตามด้วย : (เช่น "Version A:" หรือ "Short:")
+                .replace(/^[A-Za-z0-9 \-–()\/]+:\s*$/gm, '')
                 // ตัดบรรทัดที่มีแต่ - หรือ — หรือ =
                 .replace(/^[-–—=\s]+$/gm, '')
                 // ตัดคำว่า "video" ที่ท้ายสุด (ติดมากับ product name)
