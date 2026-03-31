@@ -277,12 +277,12 @@ chrome.runtime.onMessage.addListener((message) => {
         progressFill.classList.remove('pulse');
         progressFill.style.transition = '';
         progressFill.style.width = '100%';
-        statusText.innerText = "เสร็จสิ้น! กำลังเปิด TikTok...";
+        statusText.innerText = "วิดีโอพร้อม! กำลังใส่ Logo...";
+        chrome.storage.local.set({ jobStatus: { running: true, text: 'กำลังใส่ Logo...' } });
 
-        chrome.storage.local.set({ jobStatus: { running: false, done: true, text: 'เสร็จสิ้น!' } });
+        const automationOverlay = document.getElementById('automationOverlay');
 
-        statusText.innerText = "ดาวน์โหลดเสร็จ! กำลังเตรียม Upload...";
-        setTimeout(async () => {
+        (async () => {
             try {
                 const { lastVideoUrl, formData } = await chrome.storage.local.get(['lastVideoUrl', 'formData']);
                 const caption   = document.getElementById('captionInput').value.trim() || formData?.caption || '';
@@ -293,25 +293,23 @@ chrome.runtime.onMessage.addListener((message) => {
                     return;
                 }
 
-                // Logo processing + TikTok open + upload (ไม่สลับ tab จนกว่า logo เสร็จ)
+                // อยู่หน้า Flow จนกว่า logo เสร็จ + upload เสร็จ — แล้วค่อยสลับ
                 await prepareAndUploadToTikTok(lastVideoUrl, caption, productId, statusText);
                 statusText.innerText = "อัปโหลดเสร็จ! กลับไปหน้า Flow...";
                 await switchToFlow();
             } catch (err) {
                 console.error("TikTok flow error:", err);
                 statusText.innerText = "Error: " + err.message;
+            } finally {
+                await new Promise(r => setTimeout(r, 3000));
+                statusBar.classList.add('hidden');
+                progressFill.style.width = '0%';
+                statusText.innerText = "กำลังสร้างวิดีโอ.. รอสักครู่";
+                setRunning(false);
+                chrome.storage.local.remove('jobStatus');
+                if (automationOverlay) automationOverlay.classList.add('hidden');
             }
-        }, 3000);
-
-        setTimeout(() => {
-            statusBar.classList.add('hidden');
-            progressFill.style.width = '0%';
-            statusText.innerText = "กำลังสร้างวิดีโอ.. รอสักครู่";
-            setRunning(false);
-            chrome.storage.local.remove('jobStatus');
-            const automationOverlay = document.getElementById('automationOverlay');
-            if (automationOverlay) automationOverlay.classList.add('hidden');
-        }, 8000);
+        })();
     }
 
     if (message.action === 'imageReady') {
