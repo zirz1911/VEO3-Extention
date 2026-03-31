@@ -82,6 +82,38 @@ chrome.runtime.onMessage.addListener((message) => {
     }
 });
 
+// ── Manual Task Trigger ───────────────────────────────────────────────────
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'runTaskNow') {
+        chrome.storage.local.get('tasks', async ({ tasks = [] }) => {
+            const task = tasks.find(t => t.id === message.taskId);
+            if (!task) { sendResponse({ error: 'ไม่พบ Task' }); return; }
+
+            const logEntry = {
+                id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                taskId: task.id,
+                scheduleId: 'manual',
+                scheduledTime: 'manual',
+                triggeredAt: Date.now(),
+                finishedAt: null,
+                status: 'running',
+                error: null
+            };
+            await tmAppendLog(logEntry);
+            console.log(`[Manual] Starting task "${task.name}"`);
+
+            runTaskJob(task, logEntry.id)
+                .then(() => sendResponse({ ok: true }))
+                .catch(async (err) => {
+                    console.error('[Manual] Job failed:', err);
+                    await tmUpdateLog(logEntry.id, { status: 'failed', error: err.message, finishedAt: Date.now() });
+                    sendResponse({ error: err.message });
+                });
+        });
+        return true; // keep channel open for async
+    }
+});
+
 // ── Scheduler Engine ─────────────────────────────────────────────────────
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {

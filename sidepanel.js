@@ -1293,7 +1293,8 @@ Spoken Language: ${language}
                 <div class="task-card-meta" style="font-size:11px">${lastRun}</div>
                 <div class="task-card-actions">
                     <button class="btn btn-ghost task-edit-btn" data-id="${task.id}" style="flex:1;font-size:11px;padding:6px">✏️ แก้ไข</button>
-                    <button class="btn btn-ghost task-delete-btn" data-id="${task.id}" style="flex:0 0 40px;font-size:11px;padding:6px;color:#EF4444;border-color:#EF444433">🗑</button>
+                    <button class="btn btn-ghost task-run-btn" data-id="${task.id}" style="flex:1;font-size:11px;padding:6px;color:var(--primary);border-color:oklch(0.65 0.18 142 / 0.4)">▶ Run</button>
+                    <button class="btn btn-ghost task-delete-btn" data-id="${task.id}" style="flex:0 0 36px;font-size:11px;padding:6px;color:#EF4444;border-color:#EF444433">🗑</button>
                 </div>
             </div>`;
         }).join('');
@@ -1309,6 +1310,24 @@ Spoken Language: ${language}
             cb.addEventListener('change', async () => {
                 await tmToggleTaskActive(cb.dataset.id);
                 renderTaskList();
+            });
+        });
+        container.querySelectorAll('.task-run-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (btn.disabled) return;
+                btn.disabled = true;
+                btn.innerText = '⏳';
+                chrome.runtime.sendMessage({ action: 'runTaskNow', taskId: btn.dataset.id }, (res) => {
+                    btn.disabled = false;
+                    if (res?.error) {
+                        btn.innerText = '❌';
+                        btn.title = res.error;
+                        setTimeout(() => { btn.innerText = '▶ Run'; btn.title = ''; }, 4000);
+                    } else {
+                        btn.innerText = '✅';
+                        setTimeout(() => { btn.innerText = '▶ Run'; renderTaskList(); }, 2000);
+                    }
+                });
             });
         });
         container.querySelectorAll('.task-delete-btn').forEach(btn => {
