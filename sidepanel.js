@@ -700,14 +700,62 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatgptApiKeyInput = document.getElementById('chatgptApiKey');
 
     // ── Logo upload wiring ────────────────────────────────────────────────
-    const logoUploadArea   = document.getElementById('logoUploadArea');
-    const logoFileInput    = document.getElementById('logoFileInput');
-    const logoPreview      = document.getElementById('logoPreview');
-    const logoUploadText   = document.getElementById('logoUploadText');
-    const logoEnabledCb    = document.getElementById('logoEnabled');
-    const logoEnabledLabel = document.getElementById('logoEnabledLabel');
-    const logoSizeInput    = document.getElementById('logoSize');
-    const logoPaddingInput = document.getElementById('logoPadding');
+    const logoUploadArea    = document.getElementById('logoUploadArea');
+    const logoFileInput     = document.getElementById('logoFileInput');
+    const logoPreview       = document.getElementById('logoPreview');
+    const logoUploadText    = document.getElementById('logoUploadText');
+    const logoEnabledCb     = document.getElementById('logoEnabled');
+    const logoEnabledLabel  = document.getElementById('logoEnabledLabel');
+    const logoSizeInput     = document.getElementById('logoSize');
+    const logoPaddingInput  = document.getElementById('logoPadding');
+    const logoPreviewWrap   = document.getElementById('logoPreviewWrap');
+    const logoPreviewCanvas = document.getElementById('logoPreviewCanvas');
+
+    // วาด preview canvas 9:16
+    function updateLogoPreviewCanvas() {
+        if (!logoPreview.src || logoPreview.classList.contains('hidden')) return;
+        const img = new Image();
+        img.onload = () => {
+            // canvas size: 270×480 (9:16 native resolution สำหรับ preview)
+            const CW = 270, CH = 480;
+            logoPreviewCanvas.width  = CW;
+            logoPreviewCanvas.height = CH;
+            const ctx = logoPreviewCanvas.getContext('2d');
+
+            // พื้นหลังสีดำ + grid pattern เหมือน video placeholder
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, CW, CH);
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 0.5;
+            for (let x = 0; x <= CW; x += 27) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CH); ctx.stroke(); }
+            for (let y = 0; y <= CH; y += 27) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CW, y); ctx.stroke(); }
+
+            // ข้อความกลาง
+            ctx.fillStyle = '#333';
+            ctx.font = '11px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('VIDEO', CW / 2, CH / 2 - 8);
+            ctx.fillText('9 : 16', CW / 2, CH / 2 + 10);
+
+            // คำนวณ logo position (อิง video จริง 720×1280 → scale down)
+            const sizePct = parseInt(logoSizeInput.value) || 15;
+            const padPx   = parseInt(logoPaddingInput.value) || 20;
+            // scale factor: preview CW / video W (720)
+            const scale  = CW / 720;
+            const logoW  = Math.round(720 * sizePct / 100 * scale);
+            const logoH  = Math.round(logoW * (img.naturalHeight / img.naturalWidth));
+            const padScaled = Math.round(padPx * scale);
+            const lx = CW - logoW - padScaled;
+            const ly = CH - logoH - padScaled;
+
+            ctx.drawImage(img, lx, ly, logoW, logoH);
+
+            // แสดง wrap
+            logoPreviewWrap.classList.remove('hidden');
+            logoPreviewWrap.style.display = 'flex';
+        };
+        img.src = logoPreview.src;
+    }
 
     logoUploadArea.addEventListener('click', () => logoFileInput.click());
     logoFileInput.addEventListener('change', () => {
@@ -718,9 +766,12 @@ document.addEventListener('DOMContentLoaded', () => {
             logoPreview.src = e.target.result;
             logoPreview.classList.remove('hidden');
             logoUploadText.classList.add('hidden');
+            updateLogoPreviewCanvas();
         };
         reader.readAsDataURL(file);
     });
+    logoSizeInput.addEventListener('input', updateLogoPreviewCanvas);
+    logoPaddingInput.addEventListener('input', updateLogoPreviewCanvas);
     logoEnabledCb.addEventListener('change', () => {
         logoEnabledLabel.textContent = logoEnabledCb.checked ? 'On' : 'Off';
     });
@@ -740,6 +791,8 @@ document.addEventListener('DOMContentLoaded', () => {
             logoEnabledLabel.textContent = isOn ? 'On' : 'Off';
             if (result.logoSize)    logoSizeInput.value    = result.logoSize;
             if (result.logoPadding) logoPaddingInput.value = result.logoPadding;
+            // วาด preview ถ้ามี logo
+            setTimeout(updateLogoPreviewCanvas, 50);
         });
         settingsModal.classList.remove('hidden');
     });
