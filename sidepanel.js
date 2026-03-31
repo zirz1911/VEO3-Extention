@@ -549,8 +549,9 @@ function buildStep3Prompt() {
     const script     = document.getElementById('captionScript')?.value || '';
     const audience   = document.getElementById('audience3')?.value || '';
     const hookStyle  = document.getElementById('hookStyle3')?.value || '';
+    const language   = document.getElementById('languageSelect')?.value || 'Thai';
 
-    return `You are a Thai social media copywriter who writes casual, relatable
+    return `You are a social media copywriter who writes casual, relatable
 product captions for ${platform}.
 
 Product: ${product}
@@ -565,10 +566,11 @@ Requirements:
 - 2-3 lines max
 - Start with ${hookStyle}
 - End with CTA
-- Include 2-5 hashtags (Thai + English mixed)
+- Include 2-5 hashtags
+- Write the output in ${language} language
 
 --- RULES ---
-- เขียนภาษาไทยแบบพูด ไม่เป็นทางการ
+- Write in casual, conversational tone (not formal)
 - ห้ามใช้คำว่า "สุดยอด" "เหลือเชื่อ" "ดีที่สุด"
 - ใช้คำแบบคนรีวิวจริง เช่น "ใช้มาเดือนนึงแล้ว" "ตอนแรกไม่แน่ใจ" "บอกเลยว่าคุ้ม"
 - ห้ามมี label หรือ header ใดๆ ทั้งสิ้น`;

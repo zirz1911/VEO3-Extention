@@ -438,7 +438,8 @@ Pacing: ${fd.pacing2 || ''}
 }
 
 function bgBuildCaptionPrompt(fd) {
-    return `You are a Thai social media copywriter who writes casual, relatable
+    const language = fd.language || 'Thai';
+    return `You are a social media copywriter who writes casual, relatable
 product captions for ${fd.platform3 || 'TikTok'}.
 
 Product: ${fd.productName || 'product'}
@@ -453,10 +454,11 @@ Requirements:
 - 2-3 lines max
 - Start with ${fd.hookStyle3 || 'คำถาม'}
 - End with CTA
-- Include 2-5 hashtags (Thai + English mixed)
+- Include 2-5 hashtags
+- Write the output in ${language} language
 
 --- RULES ---
-- เขียนภาษาไทยแบบพูด ไม่เป็นทางการ
+- Write in casual, conversational tone (not formal)
 - ห้ามใช้คำว่า "สุดยอด" "เหลือเชื่อ" "ดีที่สุด"
 - ใช้คำแบบคนรีวิวจริง
 - ห้ามมี label หรือ header ใดๆ ทั้งสิ้น`;
