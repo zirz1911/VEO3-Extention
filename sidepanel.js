@@ -363,29 +363,28 @@ Photo looks like a genuine Shopee or TikTok customer review image.
 - No text, watermark, or logo unless specified.`;
 }
 
-function buildStep2Prompt() {
-    const gender     = document.querySelector('input[name="gender2"]:checked')?.value === 'female' ? 'female' : 'male';
-    const genderWord = gender === 'female' ? 'female' : 'male';
-    const action     = document.getElementById('action2')?.value || '';
-    const product    = document.getElementById('productName')?.value || 'product';
-    const script     = document.getElementById('scriptInput')?.value.trim() || '';
-    const keyMsg     = document.getElementById('keyMessageInput')?.value.trim() || '';
-    const platform   = document.getElementById('platform2')?.value || 'TikTok';
-    const pacing     = document.getElementById('pacing2')?.value || '';
+function buildStep2Prompt(expandedScript = '') {
+    const gender        = document.querySelector('input[name="gender2"]:checked')?.value === 'female' ? 'female' : 'male';
+    const genderWord    = gender === 'female' ? 'female' : 'male';
+    const action        = document.getElementById('action2')?.value || '';
+    const specialAction = document.getElementById('specialActionInput')?.value.trim() || '';
+    const product       = document.getElementById('productName')?.value || 'product';
+    const platform      = document.getElementById('platform2')?.value || 'TikTok';
+    const pacing        = document.getElementById('pacing2')?.value || '';
+    const language      = document.getElementById('languageSelect')?.value || 'Thai';
 
-    const scriptLine   = script  ? `\nScript: ${script}` : '';
-    const keyMsgLine   = keyMsg  ? `\nKey Message: ${keyMsg}` : '';
+    const actionLine  = specialAction ? `\nSpecial Action: ${specialAction}` : '';
+    const scriptLine  = expandedScript ? `\nScript: ${expandedScript}` : '[AI จะสร้าง Script อัตโนมัติตอนรัน]';
 
     return `A ${genderWord} Thai person,
 is ${action} the ${product}.
+${actionLine}
 
 Location: สุ่มตามประเภทตามสินค้า
-${scriptLine}${keyMsgLine}
-
-End with CTA: "สั่งซื้อได้เลย"
+${scriptLine}
 
 Style: UGC smartphone footage, handheld slightly shaky,
-natural Thai daylight, no cinematic filter, no heavy color grading.
+natural ${language} daylight, no cinematic filter, no heavy color grading.
 Looks like a real person filming themselves for ${platform}.
 
 Pacing: ${pacing}
@@ -394,6 +393,32 @@ Pacing: ${pacing}
 - NO text, words, letters, numbers, subtitles, captions, overlays, or watermarks of any kind visible in the video.
 - Do NOT render any on-screen graphics, title cards, or burnt-in captions.
 - The video must be completely clean — visuals only, zero text.`;
+}
+
+// prompt ให้ AI เจน script จาก brief input
+function buildScriptExpandPrompt() {
+    const product       = document.getElementById('productName')?.value || 'product';
+    const action        = document.getElementById('action2')?.value || '';
+    const specialAction = document.getElementById('specialActionInput')?.value.trim() || '';
+    const brief         = document.getElementById('scriptInput')?.value.trim() || '';
+    const language      = document.getElementById('languageSelect')?.value || 'Thai';
+
+    const specialLine = specialAction ? `Special Action: ${specialAction}\n` : '';
+    const briefLine   = brief ? `Script/Key Message idea: ${brief}\n` : '';
+
+    return `You are writing a visual scene description for an 8-second product video in ${language} context.
+
+Product: ${product}
+Main Action: ${action}
+${specialLine}${briefLine}
+Write a concise 2-4 sentence visual scene description that:
+- Describes ONLY what is visually happening (no dialogue, no subtitles, no text)
+- Fits naturally within 8 seconds
+- Starts with the action, builds interest, ends with product close-up
+- Feels authentic and natural for ${language} TikTok UGC style
+- Each run should have slightly different visual details to avoid repetition
+
+Output ONLY the scene description. No labels, no explanation.`;
 }
 
 function cleanCaption(text) {
@@ -539,7 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Step 2 field listeners
-    ['action2', 'scriptInput', 'keyMessageInput', 'platform2', 'pacing2', 'ratioSelect', 'quantitySelect', 'veoModelSelect'].forEach(id => {
+    ['action2', 'specialActionInput', 'scriptInput', 'platform2', 'pacing2', 'ratioSelect', 'quantitySelect', 'veoModelSelect', 'languageSelect'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.addEventListener('change', () => { updateStep2Prompt(); saveFormData(); });
@@ -548,49 +573,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.querySelectorAll('input[name="gender2"]').forEach(r => {
         r.addEventListener('change', () => { updateStep2Prompt(); saveFormData(); });
-    });
-
-    // ── AI Expand Script button ───────────────────────────────────────────
-    document.getElementById('aiExpandScriptBtn').addEventListener('click', async () => {
-        const btn       = document.getElementById('aiExpandScriptBtn');
-        const scriptEl  = document.getElementById('scriptInput');
-        const brief     = scriptEl.value.trim();
-        if (!brief) { scriptEl.placeholder = 'พิมพ์ไอเดียก่อนแล้วกด ✨ AI'; scriptEl.focus(); return; }
-
-        btn.textContent  = '...';
-        btn.disabled     = true;
-
-        try {
-            const keys     = await new Promise(r => chrome.storage.local.get(['chatgptApiKey', 'googleApiKey'], r));
-            const model    = document.querySelector('input[name="flowModel"]:checked')?.value || 'gemini';
-            const product  = document.getElementById('productName')?.value || 'product';
-            const action   = document.getElementById('action2')?.value || '';
-            const keyMsg   = document.getElementById('keyMessageInput')?.value.trim() || '';
-
-            const aiPrompt = `You are a video director writing a visual scene description for an 8-second UGC product video.
-
-Product: ${product}
-Main Action: ${action}
-User's brief idea: ${brief}${keyMsg ? `\nKey Message: ${keyMsg}` : ''}
-
-Write a concise 1-3 sentence visual script description that:
-- Describes ONLY what is visually happening (no dialogue, no text, no voiceover)
-- Fits within 8 seconds
-- Feels natural and authentic, like a real Thai person filming for TikTok
-- Starts with the action, ends with a natural close-up of the product
-
-Output ONLY the script description. No labels, no explanation.`;
-
-            const expanded = await callAI(aiPrompt, model, keys.chatgptApiKey, keys.googleApiKey, 150);
-            scriptEl.value = expanded.trim();
-            updateStep2Prompt();
-            saveFormData();
-        } catch (err) {
-            alert('AI Error: ' + err.message);
-        }
-
-        btn.textContent = '✨ AI';
-        btn.disabled    = false;
     });
 
     // Step 3 field listeners
@@ -663,8 +645,9 @@ Output ONLY the script description. No labels, no explanation.`;
             ratio:        document.getElementById('ratioSelect').value,
             quantity:     document.getElementById('quantitySelect').value,
             veoModel:     document.getElementById('veoModelSelect').value,
-            script:       document.getElementById('scriptInput').value,
-            keyMessage:   document.getElementById('keyMessageInput').value,
+            script:         document.getElementById('scriptInput').value,
+            specialAction:  document.getElementById('specialActionInput').value,
+            language:       document.getElementById('languageSelect').value,
             caption:      document.getElementById('captionInput').value,
             productId:    document.getElementById('productIdInput').value,
             captionScript: document.getElementById('captionScript').value,
@@ -691,8 +674,9 @@ Output ONLY the script description. No labels, no explanation.`;
         if (d.ratio)    document.getElementById('ratioSelect').value    = d.ratio;
         if (d.quantity) document.getElementById('quantitySelect').value = d.quantity;
         if (d.veoModel) document.getElementById('veoModelSelect').value = d.veoModel;
-        if (d.script)      document.getElementById('scriptInput').value      = d.script;
-        if (d.keyMessage)  document.getElementById('keyMessageInput').value  = d.keyMessage;
+        if (d.script)         document.getElementById('scriptInput').value         = d.script;
+        if (d.specialAction)  document.getElementById('specialActionInput').value  = d.specialAction;
+        if (d.language)       document.getElementById('languageSelect').value       = d.language;
         if (d.caption)  document.getElementById('captionInput').value   = d.caption;
         if (d.productId) document.getElementById('productIdInput').value = d.productId;
         if (d.captionScript) document.getElementById('captionScript').value = d.captionScript;
@@ -1466,11 +1450,23 @@ Output ONLY the script description. No labels, no explanation.`;
         chrome.storage.local.set({ jobStatus: { running: true, step: 0, text: 'กำลังสร้าง Caption...' } });
 
         try {
-            // ── Step A: Build prompts ──────────────────────────────────────
+            // ── Step A: Build image prompt ────────────────────────────────
             const imagePrompt = buildStep1Prompt();
-            const videoPrompt = buildStep2Prompt();
 
-            // ── Step B: Generate Caption with AI ──────────────────────────
+            // ── Step B: Auto-generate Script with AI (every run) ──────────
+            if (overlayStepText) overlayStepText.innerText = 'กำลังสร้าง Script...';
+            statusText.innerText = 'กำลังสร้าง Script...';
+            let expandedScript = '';
+            try {
+                expandedScript = (await callAI(buildScriptExpandPrompt(), selectedModel, chatgptKey, googleKey, 200)).trim();
+                console.log('[Script] Generated:', expandedScript);
+            } catch (e) {
+                console.warn('[Script] AI failed, using brief:', e.message);
+                expandedScript = document.getElementById('scriptInput')?.value.trim() || '';
+            }
+            const videoPrompt = buildStep2Prompt(expandedScript);
+
+            // ── Step C: Generate Caption with AI ──────────────────────────
             const captionPromptText = buildStep3Prompt();
             const rawCaption = await callAI(captionPromptText, selectedModel, chatgptKey, googleKey, 400);
             console.log('[Caption] rawCaption:', JSON.stringify(rawCaption));

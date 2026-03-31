@@ -242,20 +242,25 @@
             <option value="ติดตั้งสินค้า">ติดตั้งสินค้า</option>
             <option value="เปรียบเทียบก่อน-หลัง">เปรียบเทียบก่อน-หลัง</option>
           </select>
-        </div>
-
-        <!-- Optional: Script + Key Message -->
-        <div class="form-group">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-            <label style="margin-bottom:0">Script <span style="color:var(--text-muted);font-size:10px">(optional)</span></label>
-            <button id="aiExpandScriptBtn" class="btn btn-ghost" style="padding:3px 8px;font-size:10px;width:auto">✨ AI</button>
-          </div>
-          <textarea id="scriptInput" rows="3" placeholder="พิมพ์แค่นิดเดียว เช่น 'หยิบสินค้าขึ้นมาชม แล้วทดลองใช้' แล้วกด ✨ AI"></textarea>
+          <textarea id="specialActionInput" rows="2" style="margin-top:6px" placeholder="Special Action (optional) เช่น 'หยิบขึ้นมาดม แล้วยิ้ม ก่อนพูดว่า wow'"></textarea>
         </div>
 
         <div class="form-group">
-          <label>Key Message <span style="color:var(--text-muted);font-size:10px">(optional)</span></label>
-          <textarea id="keyMessageInput" rows="2" placeholder="เช่น 'ใช้แล้วผิวนุ่ม' หรือ 'คุ้มมากราคานี้'"></textarea>
+          <label>Script / Key Message <span style="color:var(--text-muted);font-size:10px">(optional — AI จะเจนให้อัตโนมัติทุกครั้ง)</span></label>
+          <textarea id="scriptInput" rows="3" placeholder="พิมพ์ไอเดียสั้นๆ เช่น 'ทดลองทาแล้วผิวนุ่ม คุ้มมาก ราคาไม่แพง'"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>ภาษาวิดีโอ <span style="color:oklch(0.85 0.20 142);font-size:10px">*</span></label>
+          <select id="languageSelect">
+            <option value="Thai">🇹🇭 ภาษาไทย</option>
+            <option value="English">🇬🇧 English</option>
+            <option value="Chinese">🇨🇳 ภาษาจีน</option>
+            <option value="Japanese">🇯🇵 ภาษาญี่ปุ่น</option>
+            <option value="Korean">🇰🇷 ภาษาเกาหลี</option>
+            <option value="Indonesian">🇮🇩 Bahasa Indonesia</option>
+            <option value="Vietnamese">🇻🇳 Tiếng Việt</option>
+          </select>
         </div>
 
         <div class="form-group">
@@ -316,8 +321,7 @@
           </div>
         </div>
 
-        <!-- Hidden fields for content script compatibility -->
-        <input type="hidden" id="languageSelect" value="Thai">
+        <!-- Hidden field for content script compatibility -->
         <input type="hidden" id="cameraAngle" value="static">
 
         <div class="form-group">

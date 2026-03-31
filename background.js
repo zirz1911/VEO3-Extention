@@ -264,6 +264,16 @@ async function runTaskJob(task, logId) {
             chrome.runtime.onMessage.addListener(imgL);
         });
 
+        // Auto-generate script with AI (every run, to avoid repetition)
+        let expandedScript = '';
+        try {
+            expandedScript = (await bgCallAI(bgBuildScriptExpandPrompt(fd), model, keys.chatgptApiKey, keys.googleApiKey, 200)).trim();
+            console.log('[Scheduler] Script generated:', expandedScript.substring(0, 80) + '...');
+        } catch (e) {
+            console.warn('[Scheduler] Script generation failed, using brief:', e.message);
+            expandedScript = fd.script || '';
+        }
+
         // Video generation
         await new Promise((resolve, reject) => {
             chrome.tabs.sendMessage(tabId, {
@@ -274,7 +284,7 @@ async function runTaskJob(task, logId) {
                     quantity: fd.quantity || '1',
                     veoModel: fd.veoModel || '',
                     camera: 'static',
-                    script: bgBuildVideoPrompt(fd),
+                    script: bgBuildVideoPrompt(fd, expandedScript),
                     imageData: generatedImageData
                 }
             }, (res) => {
@@ -399,19 +409,39 @@ Photo looks like a genuine Shopee or TikTok customer review image.
 - No text, watermark, or logo unless specified.`;
 }
 
-function bgBuildVideoPrompt(fd) {
-    const gender = fd.gender2 === 'female' ? 'female' : 'male';
-    const scriptLine  = fd.script     ? `\nScript: ${fd.script}`         : '';
-    const keyMsgLine  = fd.keyMessage ? `\nKey Message: ${fd.keyMessage}` : '';
+function bgBuildScriptExpandPrompt(fd) {
+    const language      = fd.language || 'Thai';
+    const specialLine   = fd.specialAction ? `Special Action: ${fd.specialAction}\n` : '';
+    const briefLine     = fd.script        ? `Script/Key Message idea: ${fd.script}\n` : '';
+    return `You are writing a visual scene description for an 8-second product video in ${language} context.
+
+Product: ${fd.productName || 'product'}
+Main Action: ${fd.action2 || 'รีวิวสินค้าต่อหน้ากล้อง'}
+${specialLine}${briefLine}
+Write a concise 2-4 sentence visual scene description that:
+- Describes ONLY what is visually happening (no dialogue, no subtitles, no text)
+- Fits naturally within 8 seconds
+- Starts with the action, builds interest, ends with product close-up
+- Feels authentic and natural for ${language} TikTok UGC style
+- Each run should have slightly different visual details to avoid repetition
+
+Output ONLY the scene description. No labels, no explanation.`;
+}
+
+function bgBuildVideoPrompt(fd, expandedScript = '') {
+    const gender        = fd.gender2 === 'female' ? 'female' : 'male';
+    const language      = fd.language || 'Thai';
+    const actionLine    = fd.specialAction ? `\nSpecial Action: ${fd.specialAction}` : '';
+    const scriptLine    = expandedScript ? `\nScript: ${expandedScript}` : (fd.script ? `\nScript: ${fd.script}` : '');
     return `A ${gender} Thai person,
 is ${fd.action2 || 'รีวิวสินค้าต่อหน้ากล้อง'} the ${fd.productName || 'product'}.
+${actionLine}
 
 Location: สุ่มตามประเภทตามสินค้า
-${scriptLine}${keyMsgLine}
-End with CTA: "สั่งซื้อได้เลย"
+${scriptLine}
 
 Style: UGC smartphone footage, handheld slightly shaky,
-natural Thai daylight, no cinematic filter, no heavy color grading.
+natural ${language} daylight, no cinematic filter, no heavy color grading.
 Looks like a real person filming themselves for ${fd.platform2 || 'TikTok'}.
 
 Pacing: ${fd.pacing2 || ''}
@@ -427,7 +457,7 @@ function bgBuildCaptionPrompt(fd) {
 product captions for ${fd.platform3 || 'TikTok'}.
 
 Product: ${fd.productName || 'product'}
-Script/Key Message: ${fd.captionScript || fd.script || ''}${fd.keyMessage ? '\nKey Message: ' + fd.keyMessage : ''}
+Script/Key Message: ${fd.captionScript || fd.script || ''}${fd.specialAction ? '\nSpecial Action: ' + fd.specialAction : ''}
 Target Audience: ${fd.audience3 || ''}
 
 --- OUTPUT ---
