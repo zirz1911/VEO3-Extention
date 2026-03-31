@@ -1435,14 +1435,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 onStatus:    setStatus
             });
 
+            setStatus('🔄 กำลัง Convert เป็น MP4...');
+            const mp4Blob = await convertWebmToMp4(processed, ({ ratio }) => {
+                setStatus(`🔄 Converting MP4... ${Math.round((ratio || 0) * 100)}%`);
+            });
             setStatus('✅ เสร็จ! กำลัง Download...');
-            const url = URL.createObjectURL(processed);
+            const url = URL.createObjectURL(mp4Blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'logo_preview_' + Date.now() + '.webm';
+            a.download = 'logo_preview_' + Date.now() + '.mp4';
             a.click();
             setTimeout(() => URL.revokeObjectURL(url), 5000);
-            setStatus(`✅ Done ${Math.round(processed.size/1024/1024*10)/10} MB`);
+            setStatus(`✅ Done ${Math.round(mp4Blob.size/1024/1024*10)/10} MB (mp4)`);
         } catch (err) {
             setStatus('❌ ' + err.message);
             console.error('[TestLogoDownload]', err);
