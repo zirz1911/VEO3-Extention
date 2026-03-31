@@ -390,6 +390,7 @@ chrome.runtime.onMessage.addListener((message) => {
         statusText.innerText = `Error: ${message.error}`;
         setRunning(false);
         chrome.storage.local.set({ jobStatus: { running: false, error: message.error } });
+        chrome.storage.local.remove('sidepanelHandlingUpload');
         const automationOverlay = document.getElementById('automationOverlay');
         if (automationOverlay) automationOverlay.classList.add('hidden');
     }
@@ -1524,7 +1525,8 @@ document.addEventListener('DOMContentLoaded', () => {
         progressFill.style.width = '0%';
         progressFill.classList.add('pulse');
         statusText.innerText = 'กำลังสร้าง Caption...';
-        chrome.storage.local.set({ jobStatus: { running: true, step: 0, text: 'กำลังสร้าง Caption...' } });
+        // ตั้ง flag ทันที ก่อน flow เริ่ม — ป้องกัน runTaskJob race condition
+        chrome.storage.local.set({ jobStatus: { running: true, step: 0, text: 'กำลังสร้าง Caption...' }, sidepanelHandlingUpload: true });
 
         try {
             // ── Step A: Build image prompt ────────────────────────────────
@@ -1646,6 +1648,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     setRunning(false);
                     statusBar.classList.add('hidden');
                     if (automationOverlay) automationOverlay.classList.add('hidden');
+                    chrome.storage.local.remove('sidepanelHandlingUpload');
                 } else {
                     console.log("Run All — video gen started:", response);
                 }
@@ -1658,6 +1661,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (automationOverlay) automationOverlay.classList.add('hidden');
             statusBar.classList.add('hidden');
             chrome.storage.local.remove('jobStatus');
+            chrome.storage.local.remove('sidepanelHandlingUpload');
         }
     });
 
