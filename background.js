@@ -223,9 +223,11 @@ async function runTaskJob(task, logId) {
         const flowTabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
         if (flowTabs.length === 0) throw new Error('ไม่พบ labs.google tab — กรุณาเปิด Google Labs ก่อน');
         const tabId = flowTabs[0].id;
+        // Reload ก่อนเสมอ เพื่อ reset state ของหน้า
+        await chrome.tabs.reload(tabId);
+        await bgWaitForTabComplete(tabId);
         await chrome.tabs.update(tabId, { active: true });
         try { await chrome.windows.update(flowTabs[0].windowId, { focused: true }); } catch (_) {}
-        await bgWaitForTabComplete(tabId);
         await bgWaitForContentScript(tabId);
 
         // Image generation

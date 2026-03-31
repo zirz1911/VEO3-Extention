@@ -729,8 +729,35 @@ async function waitForVideoReady() {
     // จำจำนวน <video> ก่อนเริ่ม generate
     const videoBefore = document.querySelectorAll('video').length;
 
+    // helper: ดึงข้อความ error จาก failure card
+    function getFailureText() {
+        // failure card class
+        const failEl = document.querySelector('.sc-25d34a31-4');
+        if (failEl) {
+            return failEl.querySelector('.sc-25d34a31-2')?.textContent?.trim()
+                || failEl.textContent?.trim().split('\n').find(l => l.trim())
+                || 'การสร้างวิดีโอล้มเหลว';
+        }
+        // fallback: หาข้อความ "generation failed" / "Audio generation failed" ทั่วหน้า
+        const allText = document.body.innerText;
+        const match = allText.match(/Audio generation failed[^\n]*/i)
+            || allText.match(/generation failed[^\n]*/i)
+            || allText.match(/Please try a different prompt[^\n]*/i);
+        if (match) return match[0].trim();
+        return null;
+    }
+
     await new Promise((resolve, reject) => {
         const observer = new MutationObserver(() => {
+            // เช็ค failure ก่อนเลย — ถ้าพบให้ reject ทันที ไม่รอ timeout
+            const errText = getFailureText();
+            if (errText) {
+                console.warn('⚠️ Video generation failed (early detect):', errText);
+                observer.disconnect();
+                reject(new Error(errText));
+                return;
+            }
+
             // วิธี 1: มี <video> ใหม่โผล่ (วิดีโอพร้อมเล่น)
             const videoNow = document.querySelectorAll('video').length;
             if (videoNow > videoBefore) {
@@ -749,15 +776,12 @@ async function waitForVideoReady() {
                 return;
             }
 
-            // Timeout — เช็ค failure card หลังหมดเวลา
+            // Timeout
             if (Date.now() - start > MAX_WAIT_MS) {
                 observer.disconnect();
-                const failEl = document.querySelector('.sc-25d34a31-4');
-                if (failEl) {
-                    const errMsg = failEl.querySelector('.sc-25d34a31-2')?.textContent?.trim()
-                        || 'การสร้างวิดีโอล้มเหลว';
-                    console.warn('⚠️ Video generation failed (detected at timeout):', errMsg);
-                    reject(new Error(errMsg));
+                const t = getFailureText();
+                if (t) {
+                    reject(new Error(t));
                 } else {
                     console.warn("⚠️ Timeout waiting for video");
                     reject(new Error('Timeout: วิดีโอใช้เวลานานเกินไป'));

@@ -228,8 +228,12 @@ async function prepareAndUploadToTikTok(tiktokTabId, videoUrl, caption, productI
 async function switchToFlow() {
     const tabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
     if (tabs.length > 0) {
-        await chrome.tabs.update(tabs[0].id, { active: true });
-        console.log('Switched to Flow');
+        const tabId = tabs[0].id;
+        // Reload ก่อนเสมอ เพื่อ reset state ของหน้า
+        await chrome.tabs.reload(tabId);
+        await waitForTabComplete(tabId);
+        await chrome.tabs.update(tabId, { active: true });
+        console.log('Switched to Flow (reloaded)');
     }
 }
 
