@@ -711,48 +711,143 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoPreviewWrap   = document.getElementById('logoPreviewWrap');
     const logoPreviewCanvas = document.getElementById('logoPreviewCanvas');
 
-    // วาด preview canvas 9:16
+    // Canvas constants
+    const LC_W = 270, LC_H = 480;   // canvas resolution
+    const HANDLE = 10;               // resize handle size px
+
+    // Logo canvas state (canvas pixel space)
+    let _lcImg = null;
+    let _lcX = null, _lcY = null, _lcW = null;   // null = use default position
+    let _lcDrag = null;  // { type:'move'|'resize', startMx, startMy, startX, startY, startW }
+
+    function _lcDefaultPos(img) {
+        const sizePct  = parseInt(logoSizeInput.value) || 15;
+        const padPx    = parseInt(logoPaddingInput.value) || 20;
+        const scale    = LC_W / 720;
+        const w        = Math.round(720 * sizePct / 100 * scale);
+        const h        = Math.round(w * (img.naturalHeight / img.naturalWidth));
+        const pad      = Math.round(padPx * scale);
+        return { x: LC_W - w - pad, y: LC_H - h - pad, w };
+    }
+
+    function _lcGetRect() {
+        if (!_lcImg) return null;
+        const w = _lcW !== null ? _lcW : _lcDefaultPos(_lcImg).w;
+        const h = Math.round(w * (_lcImg.naturalHeight / _lcImg.naturalWidth));
+        const x = _lcX !== null ? _lcX : _lcDefaultPos(_lcImg).x;
+        const y = _lcY !== null ? _lcY : _lcDefaultPos(_lcImg).y;
+        return { x, y, w, h };
+    }
+
+    function _lcDraw() {
+        if (!_lcImg) return;
+        logoPreviewCanvas.width  = LC_W;
+        logoPreviewCanvas.height = LC_H;
+        const ctx = logoPreviewCanvas.getContext('2d');
+
+        // พื้นหลัง + grid
+        ctx.fillStyle = '#111';
+        ctx.fillRect(0, 0, LC_W, LC_H);
+        ctx.strokeStyle = '#1e1e1e';
+        ctx.lineWidth = 0.5;
+        for (let x = 0; x <= LC_W; x += 27) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,LC_H); ctx.stroke(); }
+        for (let y = 0; y <= LC_H; y += 27) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(LC_W,y); ctx.stroke(); }
+        ctx.fillStyle = '#2a2a2a';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('VIDEO  9:16', LC_W/2, LC_H/2);
+
+        // วาด logo
+        const r = _lcGetRect();
+        ctx.drawImage(_lcImg, r.x, r.y, r.w, r.h);
+
+        // outline + resize handle
+        ctx.strokeStyle = 'oklch(0.85 0.20 142 / 0.7)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(r.x, r.y, r.w, r.h);
+        ctx.fillStyle = 'oklch(0.85 0.20 142)';
+        ctx.fillRect(r.x + r.w - HANDLE, r.y + r.h - HANDLE, HANDLE, HANDLE);
+
+        logoPreviewWrap.classList.remove('hidden');
+        logoPreviewWrap.style.display = 'flex';
+    }
+
+    function _lcCanvasCoords(e) {
+        const rect = logoPreviewCanvas.getBoundingClientRect();
+        const scaleX = LC_W / rect.width;
+        const scaleY = LC_H / rect.height;
+        return { mx: (e.clientX - rect.left) * scaleX, my: (e.clientY - rect.top) * scaleY };
+    }
+
+    logoPreviewCanvas.addEventListener('mousedown', (e) => {
+        if (!_lcImg) return;
+        const { mx, my } = _lcCanvasCoords(e);
+        const r = _lcGetRect();
+        // ensure state is populated
+        if (_lcX === null) { _lcX = r.x; _lcY = r.y; _lcW = r.w; }
+        const onHandle = mx >= r.x + r.w - HANDLE && mx <= r.x + r.w &&
+                         my >= r.y + r.h - HANDLE && my <= r.y + r.h;
+        const onLogo   = mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h;
+        if (onHandle) {
+            _lcDrag = { type:'resize', startMx:mx, startMy:my, startW:_lcW, startX:_lcX, startY:_lcY };
+        } else if (onLogo) {
+            _lcDrag = { type:'move', startMx:mx, startMy:my, startX:_lcX, startY:_lcY };
+        }
+        e.preventDefault();
+    });
+
+    logoPreviewCanvas.addEventListener('mousemove', (e) => {
+        if (!_lcImg) return;
+        const { mx, my } = _lcCanvasCoords(e);
+        // cursor style
+        const r = _lcGetRect();
+        const onHandle = r && mx >= r.x + r.w - HANDLE && mx <= r.x + r.w &&
+                                my >= r.y + r.h - HANDLE && my <= r.y + r.h;
+        const onLogo   = r && mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h;
+        logoPreviewCanvas.style.cursor = onHandle ? 'se-resize' : onLogo ? 'move' : 'default';
+
+        if (!_lcDrag) return;
+        const dx = mx - _lcDrag.startMx;
+        const dy = my - _lcDrag.startMy;
+
+        if (_lcDrag.type === 'move') {
+            const newR = _lcGetRect();
+            _lcX = Math.max(0, Math.min(LC_W - newR.w, _lcDrag.startX + dx));
+            _lcY = Math.max(0, Math.min(LC_H - newR.h, _lcDrag.startY + dy));
+        } else {
+            // resize: maintain aspect ratio, drag corner
+            const newW = Math.max(20, Math.min(LC_W - _lcX, _lcDrag.startW + dx));
+            _lcW = newW;
+            // sync size input (% of 720px video width)
+            const newSizePct = Math.round((newW / LC_W) * 100);
+            logoSizeInput.value = Math.max(5, Math.min(40, newSizePct));
+        }
+        _lcDraw();
+        e.preventDefault();
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (_lcDrag && _lcX !== null) {
+            // save position as fractions of canvas size
+            const r = _lcGetRect();
+            chrome.storage.local.set({ logoPosFrac: { xf: r.x / LC_W, yf: r.y / LC_H, wf: r.w / LC_W } });
+        }
+        _lcDrag = null;
+    });
+
     function updateLogoPreviewCanvas() {
         if (!logoPreview.src || logoPreview.classList.contains('hidden')) return;
+        if (_lcImg && _lcImg.src === logoPreview.src) {
+            // same image — reset to default pos (size/padding changed via input)
+            _lcX = null; _lcY = null; _lcW = null;
+            _lcDraw();
+            return;
+        }
         const img = new Image();
         img.onload = () => {
-            // canvas size: 270×480 (9:16 native resolution สำหรับ preview)
-            const CW = 270, CH = 480;
-            logoPreviewCanvas.width  = CW;
-            logoPreviewCanvas.height = CH;
-            const ctx = logoPreviewCanvas.getContext('2d');
-
-            // พื้นหลังสีดำ + grid pattern เหมือน video placeholder
-            ctx.fillStyle = '#111';
-            ctx.fillRect(0, 0, CW, CH);
-            ctx.strokeStyle = '#222';
-            ctx.lineWidth = 0.5;
-            for (let x = 0; x <= CW; x += 27) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CH); ctx.stroke(); }
-            for (let y = 0; y <= CH; y += 27) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CW, y); ctx.stroke(); }
-
-            // ข้อความกลาง
-            ctx.fillStyle = '#333';
-            ctx.font = '11px monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('VIDEO', CW / 2, CH / 2 - 8);
-            ctx.fillText('9 : 16', CW / 2, CH / 2 + 10);
-
-            // คำนวณ logo position (อิง video จริง 720×1280 → scale down)
-            const sizePct = parseInt(logoSizeInput.value) || 15;
-            const padPx   = parseInt(logoPaddingInput.value) || 20;
-            // scale factor: preview CW / video W (720)
-            const scale  = CW / 720;
-            const logoW  = Math.round(720 * sizePct / 100 * scale);
-            const logoH  = Math.round(logoW * (img.naturalHeight / img.naturalWidth));
-            const padScaled = Math.round(padPx * scale);
-            const lx = CW - logoW - padScaled;
-            const ly = CH - logoH - padScaled;
-
-            ctx.drawImage(img, lx, ly, logoW, logoH);
-
-            // แสดง wrap
-            logoPreviewWrap.classList.remove('hidden');
-            logoPreviewWrap.style.display = 'flex';
+            _lcImg = img;
+            _lcX = null; _lcY = null; _lcW = null;
+            _lcDraw();
         };
         img.src = logoPreview.src;
     }
@@ -766,18 +861,19 @@ document.addEventListener('DOMContentLoaded', () => {
             logoPreview.src = e.target.result;
             logoPreview.classList.remove('hidden');
             logoUploadText.classList.add('hidden');
+            _lcImg = null;   // force reload
             updateLogoPreviewCanvas();
         };
         reader.readAsDataURL(file);
     });
-    logoSizeInput.addEventListener('input', updateLogoPreviewCanvas);
-    logoPaddingInput.addEventListener('input', updateLogoPreviewCanvas);
+    logoSizeInput.addEventListener('input', () => { _lcX=null; _lcY=null; _lcW=null; updateLogoPreviewCanvas(); });
+    logoPaddingInput.addEventListener('input', () => { _lcX=null; _lcY=null; _lcW=null; updateLogoPreviewCanvas(); });
     logoEnabledCb.addEventListener('change', () => {
         logoEnabledLabel.textContent = logoEnabledCb.checked ? 'On' : 'Off';
     });
 
     settingsBtn.addEventListener('click', () => {
-        chrome.storage.local.get(['googleApiKey', 'chatgptApiKey', 'logoDataUrl', 'logoEnabled', 'logoSize', 'logoPadding'], (result) => {
+        chrome.storage.local.get(['googleApiKey', 'chatgptApiKey', 'logoDataUrl', 'logoEnabled', 'logoSize', 'logoPadding', 'logoPosFrac'], (result) => {
             if (result.googleApiKey)  googleApiKeyInput.value  = result.googleApiKey;
             if (result.chatgptApiKey) chatgptApiKeyInput.value = result.chatgptApiKey;
             // logo
@@ -791,6 +887,15 @@ document.addEventListener('DOMContentLoaded', () => {
             logoEnabledLabel.textContent = isOn ? 'On' : 'Off';
             if (result.logoSize)    logoSizeInput.value    = result.logoSize;
             if (result.logoPadding) logoPaddingInput.value = result.logoPadding;
+            // restore saved position fractions → canvas pixels
+            if (result.logoPosFrac) {
+                const f = result.logoPosFrac;
+                _lcX = f.xf * LC_W;
+                _lcY = f.yf * LC_H;
+                _lcW = f.wf * LC_W;
+            } else {
+                _lcX = null; _lcY = null; _lcW = null;
+            }
             // วาด preview ถ้ามี logo
             setTimeout(updateLogoPreviewCanvas, 50);
         });
@@ -815,6 +920,9 @@ document.addEventListener('DOMContentLoaded', () => {
             logoSize:      parseInt(logoSizeInput.value) || 15,
             logoPadding:   parseInt(logoPaddingInput.value) || 20
         };
+        if (_lcX !== null) {
+            toSave.logoPosFrac = { xf: _lcX / LC_W, yf: _lcY / LC_H, wf: _lcW / LC_W };
+        }
         // save logo dataUrl only if a new file was selected
         if (logoPreview.src && !logoPreview.classList.contains('hidden') && logoFileInput.files[0]) {
             toSave.logoDataUrl = logoPreview.src;

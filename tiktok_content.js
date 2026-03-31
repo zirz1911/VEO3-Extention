@@ -80,13 +80,14 @@ async function uploadVideoToTikTok(videoUrl, request_caption, productId) {
     let blob = await fetchRes.blob();
 
     // Logo overlay — process ก่อน upload ถ้า enabled
-    const logoSettings = await new Promise(r => chrome.storage.local.get(['logoEnabled', 'logoDataUrl', 'logoSize', 'logoPadding'], r));
+    const logoSettings = await new Promise(r => chrome.storage.local.get(['logoEnabled', 'logoDataUrl', 'logoSize', 'logoPadding', 'logoPosFrac'], r));
     if (logoSettings.logoEnabled && logoSettings.logoDataUrl) {
         updateTikTokBanner('กำลังใส่ Logo...');
         try {
             blob = await applyLogoOverlay(blob, logoSettings.logoDataUrl, {
-                sizePct: logoSettings.logoSize  || 15,
-                padding: logoSettings.logoPadding || 20
+                sizePct:    logoSettings.logoSize    || 15,
+                padding:    logoSettings.logoPadding || 20,
+                logoPosFrac: logoSettings.logoPosFrac || null
             });
             console.log("✅ Logo overlay applied, new size:", Math.round(blob.size / 1024) + ' KB');
         } catch (err) {
@@ -840,7 +841,7 @@ async function setCaptionText(text) {
 // วาด logo PNG ทับมุมขวาล่างของวิดีโอทุก frame แล้ว encode ใหม่เป็น Blob
 // เหมาะกับวิดีโอ 8 วินาที (process เสร็จใน ~8-12 วินาที)
 // ---------------------------------------------------------------------------
-async function applyLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding = 20 } = {}) {
+async function applyLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding = 20, logoPosFrac = null } = {}) {
     // โหลด logo image
     const logoImg = await new Promise((res, rej) => {
         const img = new Image();
@@ -864,11 +865,20 @@ async function applyLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding 
     const W = video.videoWidth  || 720;
     const H = video.videoHeight || 1280;
 
-    // คำนวณขนาดและตำแหน่ง logo (มุมขวาล่าง)
-    const logoW = Math.round(W * sizePct / 100);
+    // คำนวณขนาดและตำแหน่ง logo
+    let logoW, logoX, logoY;
+    if (logoPosFrac) {
+        // use saved position fractions from canvas preview
+        logoW = Math.round(W * logoPosFrac.wf);
+        logoX = Math.round(W * logoPosFrac.xf);
+        logoY = Math.round(H * logoPosFrac.yf);
+    } else {
+        // fallback: bottom-right corner
+        logoW = Math.round(W * sizePct / 100);
+        logoX = W - logoW - padding;
+        logoY = H - Math.round(logoW * (logoImg.naturalHeight / logoImg.naturalWidth)) - padding;
+    }
     const logoH = Math.round(logoW * (logoImg.naturalHeight / logoImg.naturalWidth));
-    const logoX = W - logoW - padding;
-    const logoY = H - logoH - padding;
 
     console.log(`[Logo] video ${W}x${H}, logo ${logoW}x${logoH} at (${logoX},${logoY})`);
 
