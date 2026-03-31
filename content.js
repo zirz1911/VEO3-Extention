@@ -141,6 +141,7 @@ async function handleImageGeneration(data) {
         humanClick(addBtn);
         console.log('✅ Clicked + button');
         await new Promise(r => setTimeout(r, 700));
+        await dismissNoticeDialog();
 
         // Step 7: อัปโหลด Face Reference
         if (data.faceImageData) {
@@ -165,6 +166,7 @@ async function handleImageGeneration(data) {
             robustClick(addBtn2);
             console.log('✅ robustClick + button (2nd time)');
             await new Promise(r => setTimeout(r, 700));
+            await dismissNoticeDialog();
 
             sendProgress(7.6, 'อัปโหลด Product Image...');
             await clickUploadImage(data.productImageData);
@@ -452,6 +454,23 @@ async function waitForUploadAndSelect() {
     }
 
     await new Promise(r => setTimeout(r, 500));
+}
+
+// helper: dismiss Notice dialog (ขึ้นสำหรับบัญชีใหม่ก่อน upload)
+async function dismissNoticeDialog() {
+    for (let i = 0; i < 10; i++) {
+        const dialog = document.querySelector('[role="dialog"][data-state="open"]');
+        if (dialog) {
+            const agreeBtn = dialog.querySelector('button.sc-f4d64728-5');
+            if (agreeBtn) {
+                humanClick(agreeBtn);
+                console.log('✅ Dismissed Notice dialog (I agree)');
+                await new Promise(r => setTimeout(r, 400));
+                return;
+            }
+        }
+        await new Promise(r => setTimeout(r, 300));
+    }
 }
 
 // helper: human-like click
