@@ -42,6 +42,23 @@ async function applyUiMode() {
     }
 }
 
+// ── Pending upload store (logo pre-processed in sidepanel before switching) ───
+let pendingUpload = null;  // { base64: dataUrl, mimeType: string }
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'storePendingUpload') {
+        pendingUpload = { base64: message.base64, mimeType: message.mimeType };
+        sendResponse({ ok: true });
+        return true;
+    }
+    if (message.action === 'consumePendingUpload') {
+        const data = pendingUpload;
+        pendingUpload = null;
+        sendResponse({ data });
+        return true;
+    }
+});
+
 // ── Video fetch relay (cross-origin proxy for TikTok upload) ─────────────────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'fetchVideoAsBase64') {

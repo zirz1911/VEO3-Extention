@@ -66,32 +66,42 @@ async function uploadVideoToTikTok(videoUrl, request_caption, productId) {
     try {
     await dismissTutorialIfPresent();
 
-    updateTikTokBanner('กำลังดาวน์โหลดวิดีโอ...');
-    console.log("Fetching video via background...");
-    const result = await chrome.runtime.sendMessage({
-        action: 'fetchVideoAsBase64',
-        url: videoUrl
-    });
+    // ตรวจ pre-processed blob จาก sidepanel (logo overlay ทำไว้แล้วก่อนสลับมา)
+    const pendingRes = await new Promise(r => chrome.runtime.sendMessage({ action: 'consumePendingUpload' }, r));
+    let blob;
+    if (pendingRes?.data) {
+        updateTikTokBanner('ใช้วิดีโอที่ประมวลผลแล้ว...');
+        console.log("[Logo] Using pre-processed blob from sidepanel");
+        const fetchRes = await fetch(pendingRes.data.base64);
+        blob = await fetchRes.blob();
+    } else {
+        updateTikTokBanner('กำลังดาวน์โหลดวิดีโอ...');
+        console.log("Fetching video via background...");
+        const result = await chrome.runtime.sendMessage({
+            action: 'fetchVideoAsBase64',
+            url: videoUrl
+        });
 
-    if (result.error) throw new Error('Fetch failed: ' + result.error);
+        if (result.error) throw new Error('Fetch failed: ' + result.error);
 
-    updateTikTokBanner('กำลังเตรียมไฟล์วิดีโอ...');
-    const fetchRes = await fetch(result.base64);
-    let blob = await fetchRes.blob();
+        updateTikTokBanner('กำลังเตรียมไฟล์วิดีโอ...');
+        const fetchRes = await fetch(result.base64);
+        blob = await fetchRes.blob();
 
-    // Logo overlay — process ก่อน upload ถ้า enabled
-    const logoSettings = await new Promise(r => chrome.storage.local.get(['logoEnabled', 'logoDataUrl', 'logoSize', 'logoPadding', 'logoPosFrac'], r));
-    if (logoSettings.logoEnabled && logoSettings.logoDataUrl) {
-        updateTikTokBanner('กำลังใส่ Logo...');
-        try {
-            blob = await applyLogoOverlay(blob, logoSettings.logoDataUrl, {
-                sizePct:    logoSettings.logoSize    || 15,
-                padding:    logoSettings.logoPadding || 20,
-                logoPosFrac: logoSettings.logoPosFrac || null
-            });
-            console.log("✅ Logo overlay applied, new size:", Math.round(blob.size / 1024) + ' KB');
-        } catch (err) {
-            console.warn("⚠️ Logo overlay failed, using original:", err.message);
+        // Logo overlay — process ที่นี่เฉพาะกรณี scheduler flow (ไม่มี pre-processed)
+        const logoSettings = await new Promise(r => chrome.storage.local.get(['logoEnabled', 'logoDataUrl', 'logoSize', 'logoPadding', 'logoPosFrac'], r));
+        if (logoSettings.logoEnabled && logoSettings.logoDataUrl) {
+            updateTikTokBanner('กำลังใส่ Logo...');
+            try {
+                blob = await applyLogoOverlay(blob, logoSettings.logoDataUrl, {
+                    sizePct:    logoSettings.logoSize    || 15,
+                    padding:    logoSettings.logoPadding || 20,
+                    logoPosFrac: logoSettings.logoPosFrac || null
+                });
+                console.log("✅ Logo overlay applied, new size:", Math.round(blob.size / 1024) + ' KB');
+            } catch (err) {
+                console.warn("⚠️ Logo overlay failed, using original:", err.message);
+            }
         }
     }
 

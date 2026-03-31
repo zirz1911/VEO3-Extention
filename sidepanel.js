@@ -80,6 +80,131 @@ async function sendToTikTok(tabId, message) {
     });
 }
 
+// ── Canvas logo overlay (runs in sidepanel DOM context) ──────────────────────
+async function spTestLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding = 20, logoPosFrac = null, onStatus } = {}) {
+    onStatus?.('⏳ กำลังโหลด Logo...');
+    const logoImg = await new Promise((res, rej) => {
+        const img = new Image();
+        img.onload = () => res(img);
+        img.onerror = () => rej(new Error('โหลด Logo ไม่ได้'));
+        img.src = logoDataUrl;
+    });
+
+    onStatus?.('⏳ กำลังโหลด Video metadata...');
+    const video = document.createElement('video');
+    video.playsInline = true;
+    video.muted = true;
+    const videoObjectUrl = URL.createObjectURL(videoBlob);
+    video.src = videoObjectUrl;
+    await new Promise((res, rej) => {
+        video.onloadedmetadata = res;
+        video.onerror = () => rej(new Error('โหลด Video ไม่ได้'));
+    });
+
+    const W = video.videoWidth  || 720;
+    const H = video.videoHeight || 1280;
+    onStatus?.(`⏳ กำลัง Process ${W}x${H}...`);
+
+    let logoW, logoX, logoY;
+    if (logoPosFrac) {
+        logoW = Math.round(W * logoPosFrac.wf);
+        logoX = Math.round(W * logoPosFrac.xf);
+        logoY = Math.round(H * logoPosFrac.yf);
+    } else {
+        logoW = Math.round(W * sizePct / 100);
+        logoX = W - logoW - padding;
+        logoY = H - Math.round(logoW * (logoImg.naturalHeight / logoImg.naturalWidth)) - padding;
+    }
+    const logoH = Math.round(logoW * (logoImg.naturalHeight / logoImg.naturalWidth));
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    const stream = canvas.captureStream(30);
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9' : 'video/webm';
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
+    const chunks = [];
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+    recorder.start(100);
+    video.play();
+
+    await new Promise((res) => {
+        let frameCount = 0;
+        function drawFrame() {
+            if (video.ended || video.paused) {
+                ctx.drawImage(video, 0, 0, W, H);
+                ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+                res();
+                return;
+            }
+            ctx.drawImage(video, 0, 0, W, H);
+            ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+            frameCount++;
+            if (frameCount % 30 === 0) {
+                const pct = Math.round((video.currentTime / (video.duration || 1)) * 100);
+                onStatus?.(`⏳ Encoding... ${pct}% (${Math.round(video.currentTime)}s / ${Math.round(video.duration)}s)`);
+            }
+            requestAnimationFrame(drawFrame);
+        }
+        video.onended = () => {
+            ctx.drawImage(video, 0, 0, W, H);
+            ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+            setTimeout(res, 300);
+        };
+        requestAnimationFrame(drawFrame);
+    });
+
+    recorder.stop();
+    URL.revokeObjectURL(videoObjectUrl);
+
+    return await new Promise((res, rej) => {
+        recorder.onstop = () => res(new Blob(chunks, { type: mimeType }));
+        recorder.onerror = (e) => rej(e.error);
+    });
+}
+
+// ── Logo pre-process BEFORE switching to TikTok (manual flow) ────────────────
+// ถ้า logo enabled: download + overlay ใน sidepanel → เก็บใน background memory
+// tiktok_content.js จะหยิบมาใช้แทน download + process เอง
+async function prepareAndUploadToTikTok(tiktokTabId, videoUrl, caption, productId, statusEl) {
+    const logoSettings = await new Promise(r =>
+        chrome.storage.local.get(['logoEnabled', 'logoDataUrl', 'logoSize', 'logoPadding', 'logoPosFrac'], r)
+    );
+
+    if (logoSettings.logoEnabled && logoSettings.logoDataUrl) {
+        const setStatus = (msg) => { if (statusEl) statusEl.innerText = msg; console.log('[Logo]', msg); };
+
+        setStatus('⬇️ กำลังดาวน์โหลดวิดีโอ...');
+        const fetchResult = await new Promise((res, rej) =>
+            chrome.runtime.sendMessage({ action: 'fetchVideoAsBase64', url: videoUrl }, (r) =>
+                r?.error ? rej(new Error(r.error)) : res(r)
+            )
+        );
+        const fetchRes = await fetch(fetchResult.base64);
+        let blob = await fetchRes.blob();
+
+        let processedBlob = await spTestLogoOverlay(blob, logoSettings.logoDataUrl, {
+            sizePct:     logoSettings.logoSize    || 15,
+            padding:     logoSettings.logoPadding || 20,
+            logoPosFrac: logoSettings.logoPosFrac || null,
+            onStatus:    setStatus
+        });
+
+        setStatus('📦 เตรียมส่งไป TikTok...');
+        const reader = new FileReader();
+        const base64 = await new Promise(res => { reader.onload = () => res(reader.result); reader.readAsDataURL(processedBlob); });
+        await new Promise(res => chrome.runtime.sendMessage({ action: 'storePendingUpload', base64, mimeType: processedBlob.type }, res));
+    }
+
+    // สลับมาหน้า TikTok หลังจาก process logo เสร็จ
+    await chrome.tabs.update(tiktokTabId, { active: true });
+    await sendToTikTok(tiktokTabId, { action: 'uploadVideo', videoUrl, caption, productId });
+}
+
 async function switchToFlow() {
     const tabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
     if (tabs.length > 0) {
@@ -109,13 +234,9 @@ chrome.runtime.onMessage.addListener((message) => {
 
         chrome.storage.local.set({ jobStatus: { running: false, done: true, text: 'เสร็จสิ้น!' } });
 
-        statusText.innerText = "ดาวน์โหลดเสร็จ! กำลังสลับไป TikTok...";
+        statusText.innerText = "ดาวน์โหลดเสร็จ! กำลังเตรียม Upload...";
         setTimeout(async () => {
             try {
-                await ensureTikTokStudioOpen({ focus: false });
-                await switchToTikTok();
-                await new Promise(r => setTimeout(r, 3000));
-
                 const { lastVideoUrl, formData } = await chrome.storage.local.get(['lastVideoUrl', 'formData']);
                 const caption   = document.getElementById('captionInput').value.trim() || formData?.caption || '';
                 const productId = document.getElementById('productIdInput').value.trim() || formData?.productId || '';
@@ -125,14 +246,16 @@ chrome.runtime.onMessage.addListener((message) => {
                     return;
                 }
 
+                await ensureTikTokStudioOpen({ focus: false });
+
                 const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
                 if (tiktokTabs.length === 0) {
                     console.warn("TikTok tab not found after retry — skipping upload");
                     return;
                 }
 
-                statusText.innerText = "กำลังอัปโหลดไป TikTok...";
-                await sendToTikTok(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId });
+                // process logo BEFORE switching — progress shows in sidepanel
+                await prepareAndUploadToTikTok(tiktokTabs[0].id, lastVideoUrl, caption, productId, statusText);
                 statusText.innerText = "อัปโหลดเสร็จ! กลับไปหน้า Flow...";
                 await switchToFlow();
             } catch (err) {
@@ -918,92 +1041,6 @@ document.addEventListener('DOMContentLoaded', () => {
         testLogoBtn.disabled = false;
     });
 
-    async function spTestLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding = 20, logoPosFrac = null, onStatus } = {}) {
-        onStatus?.('⏳ กำลังโหลด Logo...');
-        const logoImg = await new Promise((res, rej) => {
-            const img = new Image();
-            img.onload = () => res(img);
-            img.onerror = () => rej(new Error('โหลด Logo ไม่ได้'));
-            img.src = logoDataUrl;
-        });
-
-        onStatus?.('⏳ กำลังโหลด Video metadata...');
-        const video = document.createElement('video');
-        video.playsInline = true;
-        video.muted = true;   // sidepanel context — muted OK for test
-        const videoUrl = URL.createObjectURL(videoBlob);
-        video.src = videoUrl;
-        await new Promise((res, rej) => {
-            video.onloadedmetadata = res;
-            video.onerror = () => rej(new Error('โหลด Video ไม่ได้'));
-        });
-
-        const W = video.videoWidth  || 720;
-        const H = video.videoHeight || 1280;
-        onStatus?.(`⏳ กำลัง Process ${W}x${H}...`);
-
-        let logoW, logoX, logoY;
-        if (logoPosFrac) {
-            logoW = Math.round(W * logoPosFrac.wf);
-            logoX = Math.round(W * logoPosFrac.xf);
-            logoY = Math.round(H * logoPosFrac.yf);
-        } else {
-            logoW = Math.round(W * sizePct / 100);
-            logoX = W - logoW - padding;
-            logoY = H - Math.round(logoW * (logoImg.naturalHeight / logoImg.naturalWidth)) - padding;
-        }
-        const logoH = Math.round(logoW * (logoImg.naturalHeight / logoImg.naturalWidth));
-
-        const canvas = document.createElement('canvas');
-        canvas.width  = W;
-        canvas.height = H;
-        const ctx = canvas.getContext('2d');
-
-        const stream = canvas.captureStream(30);
-        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-            ? 'video/webm;codecs=vp9' : 'video/webm';
-        const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
-        const chunks = [];
-        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-
-        recorder.start(100);
-        video.play();
-
-        await new Promise((res) => {
-            let frameCount = 0;
-            function drawFrame() {
-                if (video.ended || video.paused) {
-                    // ถ้าวิดีโอจบให้วาด frame สุดท้ายแล้วหยุด
-                    ctx.drawImage(video, 0, 0, W, H);
-                    ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
-                    res();
-                    return;
-                }
-                ctx.drawImage(video, 0, 0, W, H);
-                ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
-                frameCount++;
-                if (frameCount % 30 === 0) {
-                    const pct = Math.round((video.currentTime / (video.duration || 1)) * 100);
-                    onStatus?.(`⏳ Encoding... ${pct}% (${Math.round(video.currentTime)}s / ${Math.round(video.duration)}s)`);
-                }
-                requestAnimationFrame(drawFrame);
-            }
-            video.onended = () => {
-                ctx.drawImage(video, 0, 0, W, H);
-                ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
-                setTimeout(res, 300);
-            };
-            requestAnimationFrame(drawFrame);
-        });
-
-        recorder.stop();
-        URL.revokeObjectURL(videoUrl);
-
-        return await new Promise((res, rej) => {
-            recorder.onstop = () => res(new Blob(chunks, { type: mimeType }));
-            recorder.onerror = (e) => rej(e.error);
-        });
-    }
 
     settingsBtn.addEventListener('click', () => {
         chrome.storage.local.get(['googleApiKey', 'chatgptApiKey', 'logoDataUrl', 'logoEnabled', 'logoSize', 'logoPadding', 'logoPosFrac'], (result) => {
@@ -1203,7 +1240,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const caption   = cleanCaption(document.getElementById('captionInput').value);
             const productId = document.getElementById('productIdInput').value.trim();
-            await sendToTikTok(tiktokTabs[0].id, { action: 'uploadVideo', videoUrl: lastVideoUrl, caption, productId });
+            await prepareAndUploadToTikTok(tiktokTabs[0].id, lastVideoUrl, caption, productId, null);
 
         } catch (err) {
             alert('Error: ' + err.message);
