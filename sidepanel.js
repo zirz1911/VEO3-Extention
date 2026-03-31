@@ -338,6 +338,23 @@ chrome.runtime.onMessage.addListener((message) => {
     const progressFill = document.querySelector('.progress-fill');
     const runBtn      = document.getElementById('runAllBtn');
 
+    if (message.action === 'cancelAutomation') {
+        _cancelRequested = true;
+        const automationOverlay = document.getElementById('automationOverlay');
+        if (automationOverlay) automationOverlay.classList.add('hidden');
+        if (statusBar) statusBar.classList.add('hidden');
+        if (progressFill) { progressFill.classList.remove('pulse'); progressFill.style.width = '0%'; }
+        if (statusText) statusText.innerText = 'ยกเลิกแล้ว';
+        const _runAllBtn = document.getElementById('runAllBtn');
+        const _cancelBtn = document.getElementById('cancelTaskBtn');
+        if (_runAllBtn) _runAllBtn.disabled = false;
+        if (_cancelBtn) _cancelBtn.classList.add('hidden');
+        chrome.storage.local.remove('jobStatus');
+        chrome.storage.local.remove('sidepanelHandlingUpload');
+        setTimeout(() => { _cancelRequested = false; }, 1000);
+        console.log('Automation cancelled from Flow page');
+    }
+
     if (message.action === 'progress') {
         statusText.innerText = message.text || 'กำลังทำงาน...';
         const overlayStepText = document.getElementById('overlayStepText');

@@ -1016,10 +1016,16 @@ function showFlowOverlay() {
             <div style="width:32px;height:32px;border:3px solid rgba(255,255,255,0.2);border-top:3px solid #F97316;border-radius:50%;animation:lokiSpin 0.8s linear infinite;flex-shrink:0;"></div>
             <div id="loki-flow-step" style="font-size:14px;color:#F97316;font-weight:500;">กำลังเริ่มต้น...</div>
             <div style="font-size:12px;color:#9CA3AF;">⚠️ ห้ามกดอะไร ระบบกำลังทำงาน</div>
+            <button id="loki-flow-cancel" style="margin-top:4px;padding:8px 20px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.5);color:#FCA5A5;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:sans-serif;">✕ ยกเลิก Task</button>
         </div>
     `;
 
     document.body.appendChild(overlay);
+
+    document.getElementById('loki-flow-cancel').addEventListener('click', () => {
+        removeFlowOverlay();
+        chrome.runtime.sendMessage({ action: 'cancelAutomation' });
+    });
 }
 
 function updateFlowOverlay(text) {
