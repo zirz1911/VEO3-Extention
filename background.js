@@ -407,6 +407,7 @@ Write a concise 2-4 sentence visual scene description that:
 - Starts with the action, builds interest, ends with product close-up
 - Feels authentic and natural for ${language} TikTok UGC style
 - Each run should have slightly different visual details to avoid repetition
+- Write the output in ${language} language
 
 Output ONLY the scene description. No labels, no explanation.`;
 }
