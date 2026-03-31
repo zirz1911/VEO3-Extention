@@ -605,6 +605,20 @@
             <span style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted)">Preview 9:16</span>
             <canvas id="logoPreviewCanvas" style="width:100%;border-radius:4px;border:1px solid var(--border-color);display:block"></canvas>
           </div>
+
+          <!-- Test Logo Overlay -->
+          <div style="display:flex;flex-direction:column;gap:8px;padding-top:4px;border-top:1px solid var(--border-color)">
+            <span style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted)">ทดสอบ Logo Overlay</span>
+            <div style="display:flex;gap:8px;align-items:center">
+              <label id="testLogoFileLabel" class="btn btn-ghost" style="cursor:pointer;flex:1;text-align:center">
+                📂 เลือกวิดีโอ
+                <input type="file" id="testLogoFileInput" accept="video/*" style="display:none">
+              </label>
+              <button id="testLogoBtn" class="btn btn-secondary" style="flex:1" disabled>▶ Test Logo</button>
+            </div>
+            <div id="testLogoFileName" style="font-size:10px;color:var(--text-muted)">ยังไม่ได้เลือกไฟล์</div>
+            <div id="testLogoStatus" style="font-size:11px;color:var(--primary);min-height:16px"></div>
+          </div>
         </div>
       </div>
       <div class="modal-footer">

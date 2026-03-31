@@ -872,6 +872,139 @@ document.addEventListener('DOMContentLoaded', () => {
         logoEnabledLabel.textContent = logoEnabledCb.checked ? 'On' : 'Off';
     });
 
+    // ── Test Logo Overlay ────────────────────────────────────────────────────
+    const testLogoFileInput  = document.getElementById('testLogoFileInput');
+    const testLogoFileLabel  = document.getElementById('testLogoFileLabel');
+    const testLogoBtn        = document.getElementById('testLogoBtn');
+    const testLogoFileName   = document.getElementById('testLogoFileName');
+    const testLogoStatus     = document.getElementById('testLogoStatus');
+    let _testLogoVideoBlob   = null;
+
+    testLogoFileInput.addEventListener('change', () => {
+        const file = testLogoFileInput.files[0];
+        if (!file) return;
+        _testLogoVideoBlob = file;
+        testLogoFileName.textContent = file.name + ' (' + Math.round(file.size / 1024 / 1024 * 10) / 10 + ' MB)';
+        testLogoBtn.disabled = false;
+        testLogoStatus.textContent = '';
+    });
+
+    testLogoBtn.addEventListener('click', async () => {
+        if (!_testLogoVideoBlob) return;
+        const logoSrc = logoPreview.src;
+        if (!logoSrc || logoPreview.classList.contains('hidden')) {
+            testLogoStatus.textContent = '⚠️ ยังไม่ได้อัปโหลด Logo';
+            return;
+        }
+        testLogoBtn.disabled = true;
+        testLogoStatus.textContent = '⏳ กำลังโหลด Logo...';
+        try {
+            const result = await spTestLogoOverlay(_testLogoVideoBlob, logoSrc, {
+                sizePct:     parseInt(logoSizeInput.value)    || 15,
+                padding:     parseInt(logoPaddingInput.value) || 20,
+                logoPosFrac: (_lcX !== null) ? { xf: _lcX / LC_W, yf: _lcY / LC_H, wf: _lcW / LC_W } : null,
+                onStatus:    (msg) => { testLogoStatus.textContent = msg; }
+            });
+            testLogoStatus.textContent = '✅ เสร็จแล้ว! กำลัง Download...';
+            const url = URL.createObjectURL(result);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'logo_test_' + Date.now() + '.webm';
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+        } catch (err) {
+            testLogoStatus.textContent = '❌ Error: ' + err.message;
+        }
+        testLogoBtn.disabled = false;
+    });
+
+    async function spTestLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding = 20, logoPosFrac = null, onStatus } = {}) {
+        onStatus?.('⏳ กำลังโหลด Logo...');
+        const logoImg = await new Promise((res, rej) => {
+            const img = new Image();
+            img.onload = () => res(img);
+            img.onerror = () => rej(new Error('โหลด Logo ไม่ได้'));
+            img.src = logoDataUrl;
+        });
+
+        onStatus?.('⏳ กำลังโหลด Video metadata...');
+        const video = document.createElement('video');
+        video.playsInline = true;
+        video.muted = true;   // sidepanel context — muted OK for test
+        const videoUrl = URL.createObjectURL(videoBlob);
+        video.src = videoUrl;
+        await new Promise((res, rej) => {
+            video.onloadedmetadata = res;
+            video.onerror = () => rej(new Error('โหลด Video ไม่ได้'));
+        });
+
+        const W = video.videoWidth  || 720;
+        const H = video.videoHeight || 1280;
+        onStatus?.(`⏳ กำลัง Process ${W}x${H}...`);
+
+        let logoW, logoX, logoY;
+        if (logoPosFrac) {
+            logoW = Math.round(W * logoPosFrac.wf);
+            logoX = Math.round(W * logoPosFrac.xf);
+            logoY = Math.round(H * logoPosFrac.yf);
+        } else {
+            logoW = Math.round(W * sizePct / 100);
+            logoX = W - logoW - padding;
+            logoY = H - Math.round(logoW * (logoImg.naturalHeight / logoImg.naturalWidth)) - padding;
+        }
+        const logoH = Math.round(logoW * (logoImg.naturalHeight / logoImg.naturalWidth));
+
+        const canvas = document.createElement('canvas');
+        canvas.width  = W;
+        canvas.height = H;
+        const ctx = canvas.getContext('2d');
+
+        const stream = canvas.captureStream(30);
+        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+            ? 'video/webm;codecs=vp9' : 'video/webm';
+        const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
+        const chunks = [];
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+        recorder.start(100);
+        video.play();
+
+        await new Promise((res) => {
+            let frameCount = 0;
+            function drawFrame() {
+                if (video.ended || video.paused) {
+                    // ถ้าวิดีโอจบให้วาด frame สุดท้ายแล้วหยุด
+                    ctx.drawImage(video, 0, 0, W, H);
+                    ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+                    res();
+                    return;
+                }
+                ctx.drawImage(video, 0, 0, W, H);
+                ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+                frameCount++;
+                if (frameCount % 30 === 0) {
+                    const pct = Math.round((video.currentTime / (video.duration || 1)) * 100);
+                    onStatus?.(`⏳ Encoding... ${pct}% (${Math.round(video.currentTime)}s / ${Math.round(video.duration)}s)`);
+                }
+                requestAnimationFrame(drawFrame);
+            }
+            video.onended = () => {
+                ctx.drawImage(video, 0, 0, W, H);
+                ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+                setTimeout(res, 300);
+            };
+            requestAnimationFrame(drawFrame);
+        });
+
+        recorder.stop();
+        URL.revokeObjectURL(videoUrl);
+
+        return await new Promise((res, rej) => {
+            recorder.onstop = () => res(new Blob(chunks, { type: mimeType }));
+            recorder.onerror = (e) => rej(e.error);
+        });
+    }
+
     settingsBtn.addEventListener('click', () => {
         chrome.storage.local.get(['googleApiKey', 'chatgptApiKey', 'logoDataUrl', 'logoEnabled', 'logoSize', 'logoPadding', 'logoPosFrac'], (result) => {
             if (result.googleApiKey)  googleApiKeyInput.value  = result.googleApiKey;
