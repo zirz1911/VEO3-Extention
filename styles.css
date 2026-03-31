@@ -1164,3 +1164,24 @@ button,
   color: var(--text-muted);
   min-width: 24px;
 }
+
+/* ── Logo Upload Area ───────────────────────────────────────────────────── */
+.logo-upload-area {
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: var(--input-bg);
+}
+
+.logo-upload-area:hover {
+  border-color: oklch(0.65 0.18 142);
+  background: oklch(0.85 0.20 142 / 0.05);
+}

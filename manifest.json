@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gen Flow Flow",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Chrome Extension for Google Labs Flow tools",
   "permissions": [
     "sidePanel",

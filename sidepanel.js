@@ -699,10 +699,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const googleApiKeyInput = document.getElementById('googleApiKey');
     const chatgptApiKeyInput = document.getElementById('chatgptApiKey');
 
+    // ── Logo upload wiring ────────────────────────────────────────────────
+    const logoUploadArea   = document.getElementById('logoUploadArea');
+    const logoFileInput    = document.getElementById('logoFileInput');
+    const logoPreview      = document.getElementById('logoPreview');
+    const logoUploadText   = document.getElementById('logoUploadText');
+    const logoEnabledCb    = document.getElementById('logoEnabled');
+    const logoEnabledLabel = document.getElementById('logoEnabledLabel');
+    const logoSizeInput    = document.getElementById('logoSize');
+    const logoPaddingInput = document.getElementById('logoPadding');
+
+    logoUploadArea.addEventListener('click', () => logoFileInput.click());
+    logoFileInput.addEventListener('change', () => {
+        const file = logoFileInput.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            logoPreview.src = e.target.result;
+            logoPreview.classList.remove('hidden');
+            logoUploadText.classList.add('hidden');
+        };
+        reader.readAsDataURL(file);
+    });
+    logoEnabledCb.addEventListener('change', () => {
+        logoEnabledLabel.textContent = logoEnabledCb.checked ? 'On' : 'Off';
+    });
+
     settingsBtn.addEventListener('click', () => {
-        chrome.storage.local.get(['googleApiKey', 'chatgptApiKey'], (result) => {
+        chrome.storage.local.get(['googleApiKey', 'chatgptApiKey', 'logoDataUrl', 'logoEnabled', 'logoSize', 'logoPadding'], (result) => {
             if (result.googleApiKey)  googleApiKeyInput.value  = result.googleApiKey;
             if (result.chatgptApiKey) chatgptApiKeyInput.value = result.chatgptApiKey;
+            // logo
+            if (result.logoDataUrl) {
+                logoPreview.src = result.logoDataUrl;
+                logoPreview.classList.remove('hidden');
+                logoUploadText.classList.add('hidden');
+            }
+            const isOn = !!result.logoEnabled;
+            logoEnabledCb.checked = isOn;
+            logoEnabledLabel.textContent = isOn ? 'On' : 'Off';
+            if (result.logoSize)    logoSizeInput.value    = result.logoSize;
+            if (result.logoPadding) logoPaddingInput.value = result.logoPadding;
         });
         settingsModal.classList.remove('hidden');
     });
@@ -718,10 +755,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     saveSettingsBtn.addEventListener('click', () => {
-        chrome.storage.local.set({
+        const toSave = {
             googleApiKey:  googleApiKeyInput.value.trim(),
-            chatgptApiKey: chatgptApiKeyInput.value.trim()
-        }, () => {
+            chatgptApiKey: chatgptApiKeyInput.value.trim(),
+            logoEnabled:   logoEnabledCb.checked,
+            logoSize:      parseInt(logoSizeInput.value) || 15,
+            logoPadding:   parseInt(logoPaddingInput.value) || 20
+        };
+        // save logo dataUrl only if a new file was selected
+        if (logoPreview.src && !logoPreview.classList.contains('hidden') && logoFileInput.files[0]) {
+            toSave.logoDataUrl = logoPreview.src;
+        }
+        chrome.storage.local.set(toSave, () => {
             const orig = saveSettingsBtn.innerText;
             saveSettingsBtn.innerText = 'บันทึกแล้ว!';
             setTimeout(() => {

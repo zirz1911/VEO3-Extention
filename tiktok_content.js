@@ -77,8 +77,24 @@ async function uploadVideoToTikTok(videoUrl, request_caption, productId) {
 
     updateTikTokBanner('กำลังเตรียมไฟล์วิดีโอ...');
     const fetchRes = await fetch(result.base64);
-    const blob = await fetchRes.blob();
-    const file = new File([blob], 'video.mp4', { type: result.type || 'video/mp4' });
+    let blob = await fetchRes.blob();
+
+    // Logo overlay — process ก่อน upload ถ้า enabled
+    const logoSettings = await new Promise(r => chrome.storage.local.get(['logoEnabled', 'logoDataUrl', 'logoSize', 'logoPadding'], r));
+    if (logoSettings.logoEnabled && logoSettings.logoDataUrl) {
+        updateTikTokBanner('กำลังใส่ Logo...');
+        try {
+            blob = await applyLogoOverlay(blob, logoSettings.logoDataUrl, {
+                sizePct: logoSettings.logoSize  || 15,
+                padding: logoSettings.logoPadding || 20
+            });
+            console.log("✅ Logo overlay applied, new size:", Math.round(blob.size / 1024) + ' KB');
+        } catch (err) {
+            console.warn("⚠️ Logo overlay failed, using original:", err.message);
+        }
+    }
+
+    const file = new File([blob], 'video.mp4', { type: blob.type || 'video/mp4' });
     console.log("File ready:", file.name, Math.round(file.size / 1024) + ' KB');
 
     updateTikTokBanner('กำลังอัปโหลดวิดีโอไป TikTok...');
@@ -816,4 +832,113 @@ async function setCaptionText(text) {
     await new Promise(r => setTimeout(r, 300));
 
     console.log("Caption set via paste event:", text.substring(0, 50) + (text.length > 50 ? '...' : ''));
+}
+
+// ---------------------------------------------------------------------------
+// applyLogoOverlay — Canvas frame-by-frame compositing + MediaRecorder
+//
+// วาด logo PNG ทับมุมขวาล่างของวิดีโอทุก frame แล้ว encode ใหม่เป็น Blob
+// เหมาะกับวิดีโอ 8 วินาที (process เสร็จใน ~8-12 วินาที)
+// ---------------------------------------------------------------------------
+async function applyLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding = 20 } = {}) {
+    // โหลด logo image
+    const logoImg = await new Promise((res, rej) => {
+        const img = new Image();
+        img.onload = () => res(img);
+        img.onerror = () => rej(new Error('Logo image load failed'));
+        img.src = logoDataUrl;
+    });
+
+    // สร้าง hidden video element
+    const video = document.createElement('video');
+    video.playsInline = true;
+    video.muted = false;
+    const videoObjectUrl = URL.createObjectURL(videoBlob);
+    video.src = videoObjectUrl;
+
+    await new Promise((res, rej) => {
+        video.onloadedmetadata = res;
+        video.onerror = () => rej(new Error('Video metadata load failed'));
+    });
+
+    const W = video.videoWidth  || 720;
+    const H = video.videoHeight || 1280;
+
+    // คำนวณขนาดและตำแหน่ง logo (มุมขวาล่าง)
+    const logoW = Math.round(W * sizePct / 100);
+    const logoH = Math.round(logoW * (logoImg.naturalHeight / logoImg.naturalWidth));
+    const logoX = W - logoW - padding;
+    const logoY = H - logoH - padding;
+
+    console.log(`[Logo] video ${W}x${H}, logo ${logoW}x${logoH} at (${logoX},${logoY})`);
+
+    // Canvas สำหรับ compositing
+    const canvas = document.createElement('canvas');
+    canvas.width  = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // Audio routing: video → AudioContext → MediaStreamDestination
+    let audioCtx, audioStream;
+    try {
+        audioCtx   = new AudioContext();
+        const src  = audioCtx.createMediaElementSource(video);
+        const dest = audioCtx.createMediaStreamDestination();
+        src.connect(dest);
+        src.connect(audioCtx.destination);
+        audioStream = dest.stream;
+    } catch (e) {
+        console.warn('[Logo] Audio routing failed, proceeding without audio:', e.message);
+        audioStream = null;
+    }
+
+    // รวม video stream จาก canvas + audio stream
+    const canvasStream = canvas.captureStream(30);
+    const tracks = [...canvasStream.getVideoTracks()];
+    if (audioStream) tracks.push(...audioStream.getAudioTracks());
+    const combined = new MediaStream(tracks);
+
+    // เลือก mimeType ที่ดีที่สุด
+    const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+        .find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
+
+    const recorder = new MediaRecorder(combined, {
+        mimeType,
+        videoBitsPerSecond: 8_000_000  // 8 Mbps — คุณภาพสูง
+    });
+    const chunks = [];
+    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+    // วน frame ด้วย requestAnimationFrame
+    let animId;
+    function drawFrame() {
+        if (video.paused || video.ended) return;
+        ctx.drawImage(video, 0, 0, W, H);
+        ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+        animId = requestAnimationFrame(drawFrame);
+    }
+
+    return new Promise((resolve, reject) => {
+        recorder.onstop = () => {
+            cancelAnimationFrame(animId);
+            if (audioCtx) audioCtx.close().catch(() => {});
+            URL.revokeObjectURL(videoObjectUrl);
+            const resultBlob = new Blob(chunks, { type: mimeType });
+            console.log(`[Logo] Encoding done: ${Math.round(resultBlob.size / 1024)} KB (${mimeType})`);
+            resolve(resultBlob);
+        };
+        recorder.onerror = e => reject(new Error('MediaRecorder error: ' + e.error?.message));
+
+        recorder.start(100);  // emit data ทุก 100ms
+
+        video.play()
+            .then(() => { drawFrame(); })
+            .catch(err => reject(new Error('Video play failed: ' + err.message)));
+
+        video.onended = () => {
+            // รอ 300ms ให้ recorder flush frame สุดท้าย
+            setTimeout(() => recorder.stop(), 300);
+        };
+        video.onerror = () => reject(new Error('Video playback error'));
+    });
 }
