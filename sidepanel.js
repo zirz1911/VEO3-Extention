@@ -310,7 +310,7 @@ chrome.runtime.onMessage.addListener((message) => {
             statusBar.classList.add('hidden');
             progressFill.style.width = '0%';
             statusText.innerText = "กำลังสร้างวิดีโอ.. รอสักครู่";
-            if (runBtn) runBtn.disabled  = false;
+            setRunning(false);
             chrome.storage.local.remove('jobStatus');
             const automationOverlay = document.getElementById('automationOverlay');
             if (automationOverlay) automationOverlay.classList.add('hidden');
@@ -329,7 +329,7 @@ chrome.runtime.onMessage.addListener((message) => {
     if (message.action === 'videoError') {
         progressFill.classList.remove('pulse');
         statusText.innerText = `Error: ${message.error}`;
-        if (runBtn) runBtn.disabled  = false;
+        setRunning(false);
         chrome.storage.local.set({ jobStatus: { running: false, error: message.error } });
         const automationOverlay = document.getElementById('automationOverlay');
         if (automationOverlay) automationOverlay.classList.add('hidden');
@@ -495,12 +495,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const removeFaceImageBtn  = document.getElementById('removeFaceImageBtn');
 
     const runAllBtn     = document.getElementById('runAllBtn');
+    const cancelTaskBtn = document.getElementById('cancelTaskBtn');
     const statusBar     = document.getElementById('statusBar');
     const progressFill  = document.querySelector('.progress-fill');
     const statusText    = document.getElementById('statusText');
     const productNameInput = document.getElementById('productName');
     const flowUI  = document.getElementById('flowUI');
     const soraUI  = document.getElementById('soraUI');
+
+    function setRunning(running) {
+        if (runAllBtn) runAllBtn.disabled = running;
+        if (cancelTaskBtn) cancelTaskBtn.classList.toggle('hidden', !running);
+    }
 
     // ── Step navigation ──────────────────────────────────────────────────
     let currentStep = 1;
@@ -753,13 +759,14 @@ document.addEventListener('DOMContentLoaded', () => {
         progressFill.classList.remove('pulse');
         progressFill.style.width = '0%';
         statusText.innerText = 'กำลังสร้างวิดีโอ.. รอสักครู่';
-        if (runAllBtn) runAllBtn.disabled = false;
+        setRunning(false);
         chrome.storage.local.remove('jobStatus');
         console.log('Automation cancelled by user');
     }
 
     document.getElementById('statusCancelBtn').addEventListener('click', cancelAutomation);
     document.getElementById('overlayCancelBtn').addEventListener('click', cancelAutomation);
+    if (cancelTaskBtn) cancelTaskBtn.addEventListener('click', cancelAutomation);
 
     // ── Restore state on popup open ───────────────────────────────────────
     chrome.storage.local.get(['jobStatus', 'formData'], (result) => {
@@ -775,7 +782,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusBar.classList.remove('hidden');
             progressFill.classList.add('pulse');
             statusText.innerText = js.text || 'กำลังทำงาน...';
-            if (runAllBtn) runAllBtn.disabled = true;
+            setRunning(true);
             const automationOverlay = document.getElementById('automationOverlay');
             const overlayStepText   = document.getElementById('overlayStepText');
             if (automationOverlay) {
@@ -1460,7 +1467,7 @@ document.addEventListener('DOMContentLoaded', () => {
             automationOverlay.classList.remove('hidden');
         }
         statusBar.classList.remove('hidden');
-        runAllBtn.disabled = true;
+        setRunning(true);
         progressFill.style.transition = 'none';
         progressFill.style.width = '0%';
         progressFill.classList.add('pulse');
@@ -1499,7 +1506,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             if (!tab) {
                 alert("No active tab found.");
-                runAllBtn.disabled = false;
+                setRunning(false);
                 if (automationOverlay) automationOverlay.classList.add('hidden');
                 statusBar.classList.add('hidden');
                 return;
@@ -1507,7 +1514,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!tab.url || (!tab.url.includes("labs.google") && !tab.url.includes("google.com") && !tab.url.includes("aitestkitchen"))) {
                 alert(`Incorrect website.\nDetected URL: ${tab.url}\n\nPlease open Google Labs (labs.google) first.`);
                 statusText.innerText = "Incorrect website";
-                runAllBtn.disabled = false;
+                setRunning(false);
                 if (automationOverlay) automationOverlay.classList.add('hidden');
                 return;
             }
@@ -1584,7 +1591,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.error("Error sending message:", chrome.runtime.lastError);
                     statusText.innerText = "Error: Please refresh the Google Labs page";
                     alert("Connection failed. Please refresh the Google Labs page and try again.");
-                    runAllBtn.disabled = false;
+                    setRunning(false);
                     statusBar.classList.add('hidden');
                     if (automationOverlay) automationOverlay.classList.add('hidden');
                 } else {
@@ -1595,7 +1602,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("Run All error:", error);
             alert("Error: " + error.message);
-            runAllBtn.disabled = false;
+            setRunning(false);
             if (automationOverlay) automationOverlay.classList.add('hidden');
             statusBar.classList.add('hidden');
             chrome.storage.local.remove('jobStatus');

@@ -449,6 +449,14 @@ textarea:focus {
 .btn-run:active { transform: translateY(0); }
 .btn-run:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
+.btn-danger {
+  background: linear-gradient(135deg, #c0392b, #e74c3c);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+}
+.btn-danger:hover { opacity: 0.9; transform: translateY(-1px); }
+
 /* Step nav row (prev/next) */
 .step-nav {
   display: flex;
