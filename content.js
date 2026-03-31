@@ -735,21 +735,29 @@ async function waitForVideoReady() {
     // จำจำนวน <video> ก่อนเริ่ม generate
     const videoBefore = document.querySelectorAll('video').length;
 
-    // helper: ดึงข้อความ error จาก failure card
+    // helper: ตรวจ error จาก Flow — เฉพาะข้อความ user-visible จริงๆ เท่านั้น
     function getFailureText() {
-        // failure card class
-        const failEl = document.querySelector('.sc-25d34a31-4');
-        if (failEl) {
-            return failEl.querySelector('.sc-25d34a31-2')?.textContent?.trim()
-                || failEl.textContent?.trim().split('\n').find(l => l.trim())
-                || 'การสร้างวิดีโอล้มเหลว';
+        // หาข้อความ error ที่มีคำ keyword ชัดเจน (ไม่ใช่ class name)
+        const ERROR_PHRASES = [
+            /Audio generation failed/i,
+            /Video generation failed/i,
+            /Please try a different prompt/i,
+            /send feedback/i,
+        ];
+        // สแกนเฉพาะ element ที่ visible และมีข้อความสั้นๆ (error message)
+        const candidates = document.querySelectorAll('p, span, div[role="alert"], [class*="error" i], [class*="fail" i]');
+        for (const el of candidates) {
+            // ข้ามถ้ามี children เยอะ (ไม่ใช่ leaf text node)
+            if (el.children.length > 3) continue;
+            const text = el.textContent?.trim() || '';
+            // ข้ามถ้าข้อความสั้นเกินไป หรือยาวเกินไป (น่าจะเป็น class/data)
+            if (text.length < 10 || text.length > 300) continue;
+            // ต้องมีช่องว่าง (real sentence ไม่ใช่ camelCase class name)
+            if (!text.includes(' ')) continue;
+            for (const re of ERROR_PHRASES) {
+                if (re.test(text)) return text;
+            }
         }
-        // fallback: หาข้อความ "generation failed" / "Audio generation failed" ทั่วหน้า
-        const allText = document.body.innerText;
-        const match = allText.match(/Audio generation failed[^\n]*/i)
-            || allText.match(/generation failed[^\n]*/i)
-            || allText.match(/Please try a different prompt[^\n]*/i);
-        if (match) return match[0].trim();
         return null;
     }
 
