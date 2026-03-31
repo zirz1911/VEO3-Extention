@@ -46,6 +46,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.log("🛑 Job cancelled");
         sendResponse({ status: "cancelled" });
     }
+    if (request.action === 'showLogoProgress') {
+        showFlowOverlay();
+        updateFlowOverlay(request.text || 'กำลังใส่ Logo...');
+        sendResponse({ ok: true });
+    }
+    if (request.action === 'updateLogoProgress') {
+        updateFlowOverlay(request.text);
+        sendResponse({ ok: true });
+    }
+    if (request.action === 'hideLogoProgress') {
+        removeFlowOverlay();
+        sendResponse({ ok: true });
+    }
 });
 
 // ── Image Generation Pipeline ─────────────────────────────────────────────────

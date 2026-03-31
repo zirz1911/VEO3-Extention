@@ -43,6 +43,15 @@
       ]
     }
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["ffmpeg/ffmpeg-core.js", "ffmpeg/ffmpeg-core.wasm", "ffmpeg/ffmpeg-core.worker.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "action": {
     "default_title": "Open Gen Flow Flow",
     "default_popup": "sidepanel.html"

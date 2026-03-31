@@ -1,3 +1,37 @@
+// ── FFmpeg: convert webm → mp4 ────────────────────────────────────────────
+let _ffmpeg = null;
+
+async function initFFmpeg() {
+    if (_ffmpeg && _ffmpeg.isLoaded()) return _ffmpeg;
+    const { createFFmpeg } = window.FFmpeg;
+    _ffmpeg = createFFmpeg({
+        corePath: chrome.runtime.getURL('ffmpeg/ffmpeg-core.js'),
+        log: false
+    });
+    await _ffmpeg.load();
+    return _ffmpeg;
+}
+
+async function convertWebmToMp4(webmBlob, onProgress) {
+    const ffmpeg = await initFFmpeg();
+    if (onProgress) ffmpeg.setProgress(onProgress);
+    const { fetchFile } = window.FFmpeg;
+    ffmpeg.FS('writeFile', 'input.webm', await fetchFile(webmBlob));
+    await ffmpeg.run('-i', 'input.webm', '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', 'output.mp4');
+    const data = ffmpeg.FS('readFile', 'output.mp4');
+    try { ffmpeg.FS('unlink', 'input.webm'); } catch (_) {}
+    try { ffmpeg.FS('unlink', 'output.mp4'); } catch (_) {}
+    return new Blob([data.buffer], { type: 'video/mp4' });
+}
+
+// helper: ส่ง progress ไปแสดงบนหน้า Flow
+async function updateFlowTabOverlay(text) {
+    try {
+        const tabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
+        if (tabs.length > 0) chrome.tabs.sendMessage(tabs[0].id, { action: 'updateLogoProgress', text });
+    } catch (_) {}
+}
+
 // ── Task Management State ─────────────────────────────────────────────────
 let _taskEditMode = false;
 let _editingTaskId = null;
@@ -199,10 +233,18 @@ async function prepareAndUploadToTikTok(videoUrl, caption, productId, statusEl) 
     let processedBase64 = null;
     let processedMimeType = null;
 
+    // แสดง overlay บนหน้า Flow — บังไม่ให้ user กดระหว่าง process
+    const flowTabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
+    const flowTabId = flowTabs[0]?.id || null;
+    const sendToFlow = (text) => {
+        setStatus(text);
+        if (flowTabId) chrome.tabs.sendMessage(flowTabId, { action: 'updateLogoProgress', text });
+    };
+    if (flowTabId) chrome.tabs.sendMessage(flowTabId, { action: 'showLogoProgress', text: 'กำลังเตรียมไฟล์...' });
+
     if (logoSettings.logoEnabled && logoSettings.logoDataUrl) {
         // ถ้า logo enabled — ต้องเสร็จก่อนถึงจะ upload ได้ ห้าม catch แล้วข้าม
-        setStatus('⬇️ [1/4] กำลังดาวน์โหลดวิดีโอ...');
-        console.log('[PrepareUpload] Step 1: downloading video...');
+        sendToFlow('⬇️ [1/4] กำลังดาวน์โหลดวิดีโอ...');
         const fetchResult = await new Promise((res, rej) =>
             chrome.runtime.sendMessage({ action: 'fetchVideoAsBase64', url: videoUrl }, (r) =>
                 r?.error ? rej(new Error(r.error)) : res(r)
@@ -211,36 +253,42 @@ async function prepareAndUploadToTikTok(videoUrl, caption, productId, statusEl) 
         const fetchRes = await fetch(fetchResult.base64);
         const blob = await fetchRes.blob();
         const sizeMB = Math.round(blob.size / 1024 / 1024 * 10) / 10;
-        setStatus(`✅ [2/4] โหลดแล้ว ${sizeMB} MB — กำลังใส่ Logo...`);
-        console.log('[PrepareUpload] Step 2: video downloaded', sizeMB, 'MB — starting logo overlay...');
+        sendToFlow(`✅ [2/4] โหลดแล้ว ${sizeMB} MB — กำลังใส่ Logo...`);
 
-        const processedBlob = await spTestLogoOverlay(blob, logoSettings.logoDataUrl, {
+        const webmBlob = await spTestLogoOverlay(blob, logoSettings.logoDataUrl, {
             sizePct:     logoSettings.logoSize    || 15,
             padding:     logoSettings.logoPadding || 20,
             logoPosFrac: logoSettings.logoPosFrac || null,
-            onStatus:    setStatus
+            onStatus:    sendToFlow
         });
-        console.log('[PrepareUpload] Step 3: logo overlay done, encoding to base64...');
-        setStatus('📦 [3/4] Logo เสร็จแล้ว! กำลัง encode...');
+        sendToFlow('🎬 [3/4] Logo เสร็จ! กำลัง Convert เป็น MP4...');
+        console.log('[PrepareUpload] Logo done, converting webm→mp4...');
 
+        const mp4Blob = await convertWebmToMp4(webmBlob, ({ ratio }) => {
+            const pct = Math.round((ratio || 0) * 100);
+            sendToFlow(`🔄 [3/4] Converting MP4... ${pct}%`);
+        });
+        console.log('[PrepareUpload] MP4 ready, size:', Math.round(mp4Blob.size / 1024) + 'KB');
+
+        sendToFlow('📦 [4/4] MP4 พร้อม! กำลัง encode...');
         const reader = new FileReader();
-        processedBase64 = await new Promise(res => { reader.onload = () => res(reader.result); reader.readAsDataURL(processedBlob); });
-        processedMimeType = processedBlob.type;
-        console.log('[PrepareUpload] Step 4: encoded, size:', Math.round(processedBlob.size / 1024) + 'KB — ready to upload');
-        setStatus('✅ [4/4] พร้อมแล้ว! กำลังสลับไป TikTok...');
+        processedBase64 = await new Promise(res => { reader.onload = () => res(reader.result); reader.readAsDataURL(mp4Blob); });
+        processedMimeType = 'video/mp4';
+        sendToFlow('✅ พร้อมแล้ว! กำลังสลับไป TikTok...');
     } else {
-        setStatus('📤 กำลังเปิด TikTok...');
-        console.log('[PrepareUpload] Logo disabled — going to TikTok directly');
+        sendToFlow('📤 กำลังเปิด TikTok...');
     }
 
+    // ปิด overlay บนหน้า Flow
+    if (flowTabId) chrome.tabs.sendMessage(flowTabId, { action: 'hideLogoProgress' });
+
     // เปิด/หา TikTok tab — ยังไม่สลับ focus
-    console.log('[PrepareUpload] Opening TikTok tab (background)...');
     await ensureTikTokStudioOpen({ focus: false });
     const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
     if (tiktokTabs.length === 0) throw new Error('TikTok tab not found after open');
 
-    // สลับมาหน้า TikTok — เฉพาะตอนนี้เท่านั้น หลัง logo เสร็จแล้ว
-    console.log('[PrepareUpload] Switching to TikTok tab now...');
+    // สลับมาหน้า TikTok — เฉพาะตอนนี้เท่านั้น หลัง logo + mp4 เสร็จแล้ว
+    console.log('[PrepareUpload] Switching to TikTok now...');
     await chrome.tabs.update(tiktokTabs[0].id, { active: true });
     await sendToTikTok(tiktokTabs[0].id, {
         action: 'uploadVideo',
