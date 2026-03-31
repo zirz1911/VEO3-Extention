@@ -368,16 +368,19 @@ function buildStep2Prompt() {
     const genderWord = gender === 'female' ? 'female' : 'male';
     const action     = document.getElementById('action2')?.value || '';
     const product    = document.getElementById('productName')?.value || 'product';
-    const script     = document.getElementById('scriptInput')?.value || '';
+    const script     = document.getElementById('scriptInput')?.value.trim() || '';
+    const keyMsg     = document.getElementById('keyMessageInput')?.value.trim() || '';
     const platform   = document.getElementById('platform2')?.value || 'TikTok';
     const pacing     = document.getElementById('pacing2')?.value || '';
+
+    const scriptLine   = script  ? `\nScript: ${script}` : '';
+    const keyMsgLine   = keyMsg  ? `\nKey Message: ${keyMsg}` : '';
 
     return `A ${genderWord} Thai person,
 is ${action} the ${product}.
 
 Location: สุ่มตามประเภทตามสินค้า
-
-Script/Key Message: ${script}
+${scriptLine}${keyMsgLine}
 
 End with CTA: "สั่งซื้อได้เลย"
 
@@ -536,7 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Step 2 field listeners
-    ['action2', 'scriptInput', 'platform2', 'pacing2', 'ratioSelect', 'quantitySelect', 'veoModelSelect'].forEach(id => {
+    ['action2', 'scriptInput', 'keyMessageInput', 'platform2', 'pacing2', 'ratioSelect', 'quantitySelect', 'veoModelSelect'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.addEventListener('change', () => { updateStep2Prompt(); saveFormData(); });
@@ -545,6 +548,49 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.querySelectorAll('input[name="gender2"]').forEach(r => {
         r.addEventListener('change', () => { updateStep2Prompt(); saveFormData(); });
+    });
+
+    // ── AI Expand Script button ───────────────────────────────────────────
+    document.getElementById('aiExpandScriptBtn').addEventListener('click', async () => {
+        const btn       = document.getElementById('aiExpandScriptBtn');
+        const scriptEl  = document.getElementById('scriptInput');
+        const brief     = scriptEl.value.trim();
+        if (!brief) { scriptEl.placeholder = 'พิมพ์ไอเดียก่อนแล้วกด ✨ AI'; scriptEl.focus(); return; }
+
+        btn.textContent  = '...';
+        btn.disabled     = true;
+
+        try {
+            const keys     = await new Promise(r => chrome.storage.local.get(['chatgptApiKey', 'googleApiKey'], r));
+            const model    = document.querySelector('input[name="flowModel"]:checked')?.value || 'gemini';
+            const product  = document.getElementById('productName')?.value || 'product';
+            const action   = document.getElementById('action2')?.value || '';
+            const keyMsg   = document.getElementById('keyMessageInput')?.value.trim() || '';
+
+            const aiPrompt = `You are a video director writing a visual scene description for an 8-second UGC product video.
+
+Product: ${product}
+Main Action: ${action}
+User's brief idea: ${brief}${keyMsg ? `\nKey Message: ${keyMsg}` : ''}
+
+Write a concise 1-3 sentence visual script description that:
+- Describes ONLY what is visually happening (no dialogue, no text, no voiceover)
+- Fits within 8 seconds
+- Feels natural and authentic, like a real Thai person filming for TikTok
+- Starts with the action, ends with a natural close-up of the product
+
+Output ONLY the script description. No labels, no explanation.`;
+
+            const expanded = await callAI(aiPrompt, model, keys.chatgptApiKey, keys.googleApiKey, 150);
+            scriptEl.value = expanded.trim();
+            updateStep2Prompt();
+            saveFormData();
+        } catch (err) {
+            alert('AI Error: ' + err.message);
+        }
+
+        btn.textContent = '✨ AI';
+        btn.disabled    = false;
     });
 
     // Step 3 field listeners
@@ -618,6 +664,7 @@ document.addEventListener('DOMContentLoaded', () => {
             quantity:     document.getElementById('quantitySelect').value,
             veoModel:     document.getElementById('veoModelSelect').value,
             script:       document.getElementById('scriptInput').value,
+            keyMessage:   document.getElementById('keyMessageInput').value,
             caption:      document.getElementById('captionInput').value,
             productId:    document.getElementById('productIdInput').value,
             captionScript: document.getElementById('captionScript').value,
@@ -644,7 +691,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (d.ratio)    document.getElementById('ratioSelect').value    = d.ratio;
         if (d.quantity) document.getElementById('quantitySelect').value = d.quantity;
         if (d.veoModel) document.getElementById('veoModelSelect').value = d.veoModel;
-        if (d.script)   document.getElementById('scriptInput').value    = d.script;
+        if (d.script)      document.getElementById('scriptInput').value      = d.script;
+        if (d.keyMessage)  document.getElementById('keyMessageInput').value  = d.keyMessage;
         if (d.caption)  document.getElementById('captionInput').value   = d.caption;
         if (d.productId) document.getElementById('productIdInput').value = d.productId;
         if (d.captionScript) document.getElementById('captionScript').value = d.captionScript;

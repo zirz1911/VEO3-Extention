@@ -244,9 +244,18 @@
           </select>
         </div>
 
+        <!-- Optional: Script + Key Message -->
         <div class="form-group">
-          <label>Script / Key Message</label>
-          <textarea id="scriptInput" rows="4" placeholder="Enter script here..."></textarea>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <label style="margin-bottom:0">Script <span style="color:var(--text-muted);font-size:10px">(optional)</span></label>
+            <button id="aiExpandScriptBtn" class="btn btn-ghost" style="padding:3px 8px;font-size:10px;width:auto">✨ AI</button>
+          </div>
+          <textarea id="scriptInput" rows="3" placeholder="พิมพ์แค่นิดเดียว เช่น 'หยิบสินค้าขึ้นมาชม แล้วทดลองใช้' แล้วกด ✨ AI"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Key Message <span style="color:var(--text-muted);font-size:10px">(optional)</span></label>
+          <textarea id="keyMessageInput" rows="2" placeholder="เช่น 'ใช้แล้วผิวนุ่ม' หรือ 'คุ้มมากราคานี้'"></textarea>
         </div>
 
         <div class="form-group">

@@ -401,11 +401,13 @@ Photo looks like a genuine Shopee or TikTok customer review image.
 
 function bgBuildVideoPrompt(fd) {
     const gender = fd.gender2 === 'female' ? 'female' : 'male';
+    const scriptLine  = fd.script     ? `\nScript: ${fd.script}`         : '';
+    const keyMsgLine  = fd.keyMessage ? `\nKey Message: ${fd.keyMessage}` : '';
     return `A ${gender} Thai person,
 is ${fd.action2 || 'รีวิวสินค้าต่อหน้ากล้อง'} the ${fd.productName || 'product'}.
 
 Location: สุ่มตามประเภทตามสินค้า
-Script/Key Message: ${fd.script || ''}
+${scriptLine}${keyMsgLine}
 End with CTA: "สั่งซื้อได้เลย"
 
 Style: UGC smartphone footage, handheld slightly shaky,
@@ -425,7 +427,7 @@ function bgBuildCaptionPrompt(fd) {
 product captions for ${fd.platform3 || 'TikTok'}.
 
 Product: ${fd.productName || 'product'}
-Script/Key Message: ${fd.captionScript || fd.script || ''}
+Script/Key Message: ${fd.captionScript || fd.script || ''}${fd.keyMessage ? '\nKey Message: ' + fd.keyMessage : ''}
 Target Audience: ${fd.audience3 || ''}
 
 --- OUTPUT ---
