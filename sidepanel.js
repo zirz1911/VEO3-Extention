@@ -200,43 +200,47 @@ async function prepareAndUploadToTikTok(videoUrl, caption, productId, statusEl) 
     let processedMimeType = null;
 
     if (logoSettings.logoEnabled && logoSettings.logoDataUrl) {
-        try {
-            setStatus('⬇️ กำลังดาวน์โหลดวิดีโอ...');
-            const fetchResult = await new Promise((res, rej) =>
-                chrome.runtime.sendMessage({ action: 'fetchVideoAsBase64', url: videoUrl }, (r) =>
-                    r?.error ? rej(new Error(r.error)) : res(r)
-                )
-            );
-            const fetchRes = await fetch(fetchResult.base64);
-            const blob = await fetchRes.blob();
-            setStatus(`✅ โหลดแล้ว ${Math.round(blob.size/1024/1024*10)/10} MB — กำลังใส่ Logo...`);
+        // ถ้า logo enabled — ต้องเสร็จก่อนถึงจะ upload ได้ ห้าม catch แล้วข้าม
+        setStatus('⬇️ [1/4] กำลังดาวน์โหลดวิดีโอ...');
+        console.log('[PrepareUpload] Step 1: downloading video...');
+        const fetchResult = await new Promise((res, rej) =>
+            chrome.runtime.sendMessage({ action: 'fetchVideoAsBase64', url: videoUrl }, (r) =>
+                r?.error ? rej(new Error(r.error)) : res(r)
+            )
+        );
+        const fetchRes = await fetch(fetchResult.base64);
+        const blob = await fetchRes.blob();
+        const sizeMB = Math.round(blob.size / 1024 / 1024 * 10) / 10;
+        setStatus(`✅ [2/4] โหลดแล้ว ${sizeMB} MB — กำลังใส่ Logo...`);
+        console.log('[PrepareUpload] Step 2: video downloaded', sizeMB, 'MB — starting logo overlay...');
 
-            const processedBlob = await spTestLogoOverlay(blob, logoSettings.logoDataUrl, {
-                sizePct:     logoSettings.logoSize    || 15,
-                padding:     logoSettings.logoPadding || 20,
-                logoPosFrac: logoSettings.logoPosFrac || null,
-                onStatus:    setStatus
-            });
+        const processedBlob = await spTestLogoOverlay(blob, logoSettings.logoDataUrl, {
+            sizePct:     logoSettings.logoSize    || 15,
+            padding:     logoSettings.logoPadding || 20,
+            logoPosFrac: logoSettings.logoPosFrac || null,
+            onStatus:    setStatus
+        });
+        console.log('[PrepareUpload] Step 3: logo overlay done, encoding to base64...');
+        setStatus('📦 [3/4] Logo เสร็จแล้ว! กำลัง encode...');
 
-            setStatus('📦 Logo เสร็จแล้ว! กำลังเปิด TikTok...');
-            const reader = new FileReader();
-            processedBase64 = await new Promise(res => { reader.onload = () => res(reader.result); reader.readAsDataURL(processedBlob); });
-            processedMimeType = processedBlob.type;
-            console.log('[PrepareUpload] Logo applied, size:', Math.round(processedBlob.size/1024) + 'KB');
-        } catch (err) {
-            console.error('[PrepareUpload] Logo processing failed:', err);
-            setStatus('⚠️ Logo ใส่ไม่ได้ (' + err.message + ') — upload ต่อแบบไม่มี Logo');
-        }
+        const reader = new FileReader();
+        processedBase64 = await new Promise(res => { reader.onload = () => res(reader.result); reader.readAsDataURL(processedBlob); });
+        processedMimeType = processedBlob.type;
+        console.log('[PrepareUpload] Step 4: encoded, size:', Math.round(processedBlob.size / 1024) + 'KB — ready to upload');
+        setStatus('✅ [4/4] พร้อมแล้ว! กำลังสลับไป TikTok...');
     } else {
         setStatus('📤 กำลังเปิด TikTok...');
+        console.log('[PrepareUpload] Logo disabled — going to TikTok directly');
     }
 
-    // เปิด TikTok tab (ไม่ switch focus) — หลังจาก logo เสร็จเรียบร้อยแล้วเท่านั้น
+    // เปิด/หา TikTok tab — ยังไม่สลับ focus
+    console.log('[PrepareUpload] Opening TikTok tab (background)...');
     await ensureTikTokStudioOpen({ focus: false });
     const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
     if (tiktokTabs.length === 0) throw new Error('TikTok tab not found after open');
 
-    // สลับมาหน้า TikTok แล้ว upload
+    // สลับมาหน้า TikTok — เฉพาะตอนนี้เท่านั้น หลัง logo เสร็จแล้ว
+    console.log('[PrepareUpload] Switching to TikTok tab now...');
     await chrome.tabs.update(tiktokTabs[0].id, { active: true });
     await sendToTikTok(tiktokTabs[0].id, {
         action: 'uploadVideo',
