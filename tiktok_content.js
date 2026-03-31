@@ -111,8 +111,14 @@ async function uploadVideoToTikTok(videoUrl, request_caption, productId, process
     let fileInput = document.querySelector('input[type="file"]');
 
     if (!fileInput) {
-        const uploadBtn = document.querySelector('[data-e2e="select_video_button"]');
-        if (!uploadBtn) throw new Error('Upload button not found');
+        // รอ React render upload button (poll สูงสุด 10 วิ)
+        let uploadBtn = null;
+        for (let i = 0; i < 20; i++) {
+            uploadBtn = document.querySelector('[data-e2e="select_video_button"]');
+            if (uploadBtn) break;
+            await new Promise(r => setTimeout(r, 500));
+        }
+        if (!uploadBtn) throw new Error('Upload button not found after 10s wait');
 
         const blocker = (e) => {
             if (e.target.type === 'file') {

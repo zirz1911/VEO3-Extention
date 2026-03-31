@@ -86,29 +86,36 @@ function waitForTabComplete(tabId, timeoutMs = 20000) {
     });
 }
 
-// ส่ง message ไป TikTok tab — inject ก่อนถ้า sendMessage ไม่ได้
+// ส่ง message ไป TikTok tab — inject ก่อนถ้า sendMessage connection failed
 async function sendToTikTok(tabId, message) {
     // รอ tab โหลดเสร็จก่อน
     await waitForTabComplete(tabId);
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 1500));
 
     // ลอง sendMessage ก่อน
+    let lastError = null;
     const result = await new Promise(resolve => {
-        chrome.tabs.sendMessage(tabId, message, res =>
-            resolve(chrome.runtime.lastError ? { error: chrome.runtime.lastError.message } : (res || { ok: true }))
-        );
+        chrome.tabs.sendMessage(tabId, message, res => {
+            lastError = chrome.runtime.lastError || null;
+            resolve(lastError ? null : (res || { ok: true }));
+        });
     });
-    if (!result.error) return result;
 
-    console.warn('sendMessage failed, injecting script:', result.error);
+    // ถ้า content script ตอบกลับมาแล้ว (ไม่ว่าจะ ok หรือ error) — ไม่ต้อง inject
+    if (result !== null) {
+        if (result.error) throw new Error(result.error);
+        return result;
+    }
 
-    // inject แล้วลองใหม่
+    // connection failed จริง → inject แล้วลองใหม่
+    console.warn('sendMessage connection failed, injecting script:', lastError?.message);
     await chrome.scripting.executeScript({ target: { tabId }, files: ['tiktok_content.js'] });
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 1500));
 
     return new Promise((resolve, reject) => {
         chrome.tabs.sendMessage(tabId, message, res => {
             if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+            else if (res?.error) reject(new Error(res.error));
             else resolve(res || { ok: true });
         });
     });
@@ -358,7 +365,10 @@ chrome.runtime.onMessage.addListener((message) => {
                 statusBar.classList.add('hidden');
                 progressFill.style.width = '0%';
                 statusText.innerText = "กำลังสร้างวิดีโอ.. รอสักครู่";
-                setRunning(false);
+                const _runAllBtn    = document.getElementById('runAllBtn');
+                const _cancelBtn   = document.getElementById('cancelTaskBtn');
+                if (_runAllBtn)  _runAllBtn.disabled = false;
+                if (_cancelBtn) _cancelBtn.classList.add('hidden');
                 chrome.storage.local.remove('jobStatus');
                 chrome.storage.local.remove('sidepanelHandlingUpload');
                 if (automationOverlay) automationOverlay.classList.add('hidden');
