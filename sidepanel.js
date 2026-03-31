@@ -188,41 +188,59 @@ async function spTestLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding
 }
 
 // ── Logo pre-process BEFORE switching to TikTok (manual flow) ────────────────
-// ถ้า logo enabled: download + overlay ใน sidepanel → เก็บใน background memory
-// tiktok_content.js จะหยิบมาใช้แทน download + process เอง
 async function prepareAndUploadToTikTok(tiktokTabId, videoUrl, caption, productId, statusEl) {
+    const setStatus = (msg) => { if (statusEl) statusEl.innerText = msg; console.log('[PrepareUpload]', msg); };
+
     const logoSettings = await new Promise(r =>
         chrome.storage.local.get(['logoEnabled', 'logoDataUrl', 'logoSize', 'logoPadding', 'logoPosFrac'], r)
     );
+    console.log('[PrepareUpload] logoEnabled:', logoSettings.logoEnabled, '| hasDataUrl:', !!logoSettings.logoDataUrl);
+
+    let processedBase64 = null;
+    let processedMimeType = null;
 
     if (logoSettings.logoEnabled && logoSettings.logoDataUrl) {
-        const setStatus = (msg) => { if (statusEl) statusEl.innerText = msg; console.log('[Logo]', msg); };
+        try {
+            setStatus('⬇️ กำลังดาวน์โหลดวิดีโอ...');
+            const fetchResult = await new Promise((res, rej) =>
+                chrome.runtime.sendMessage({ action: 'fetchVideoAsBase64', url: videoUrl }, (r) =>
+                    r?.error ? rej(new Error(r.error)) : res(r)
+                )
+            );
+            const fetchRes = await fetch(fetchResult.base64);
+            const blob = await fetchRes.blob();
+            setStatus(`✅ โหลดแล้ว ${Math.round(blob.size/1024/1024*10)/10} MB — กำลังใส่ Logo...`);
 
-        setStatus('⬇️ กำลังดาวน์โหลดวิดีโอ...');
-        const fetchResult = await new Promise((res, rej) =>
-            chrome.runtime.sendMessage({ action: 'fetchVideoAsBase64', url: videoUrl }, (r) =>
-                r?.error ? rej(new Error(r.error)) : res(r)
-            )
-        );
-        const fetchRes = await fetch(fetchResult.base64);
-        let blob = await fetchRes.blob();
+            const processedBlob = await spTestLogoOverlay(blob, logoSettings.logoDataUrl, {
+                sizePct:     logoSettings.logoSize    || 15,
+                padding:     logoSettings.logoPadding || 20,
+                logoPosFrac: logoSettings.logoPosFrac || null,
+                onStatus:    setStatus
+            });
 
-        let processedBlob = await spTestLogoOverlay(blob, logoSettings.logoDataUrl, {
-            sizePct:     logoSettings.logoSize    || 15,
-            padding:     logoSettings.logoPadding || 20,
-            logoPosFrac: logoSettings.logoPosFrac || null,
-            onStatus:    setStatus
-        });
-
-        setStatus('📦 เตรียมส่งไป TikTok...');
-        const reader = new FileReader();
-        const base64 = await new Promise(res => { reader.onload = () => res(reader.result); reader.readAsDataURL(processedBlob); });
-        await new Promise(res => chrome.runtime.sendMessage({ action: 'storePendingUpload', base64, mimeType: processedBlob.type }, res));
+            setStatus('📦 Logo เสร็จแล้ว! เตรียมส่งไป TikTok...');
+            const reader = new FileReader();
+            processedBase64 = await new Promise(res => { reader.onload = () => res(reader.result); reader.readAsDataURL(processedBlob); });
+            processedMimeType = processedBlob.type;
+            console.log('[PrepareUpload] Logo applied, size:', Math.round(processedBlob.size/1024) + 'KB');
+        } catch (err) {
+            console.error('[PrepareUpload] Logo processing failed:', err);
+            setStatus('⚠️ Logo ใส่ไม่ได้ (' + err.message + ') — upload ต่อแบบไม่มี Logo');
+        }
+    } else {
+        setStatus('📤 กำลังสลับไป TikTok...');
     }
 
     // สลับมาหน้า TikTok หลังจาก process logo เสร็จ
     await chrome.tabs.update(tiktokTabId, { active: true });
-    await sendToTikTok(tiktokTabId, { action: 'uploadVideo', videoUrl, caption, productId });
+    await sendToTikTok(tiktokTabId, {
+        action: 'uploadVideo',
+        videoUrl,
+        caption,
+        productId,
+        processedBase64,
+        processedMimeType
+    });
 }
 
 async function switchToFlow() {
