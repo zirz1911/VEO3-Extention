@@ -52,10 +52,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function handleImageGeneration(data) {
     showFlowOverlay();
     try {
-        // Step 1: เปิด dropdown settings
+        // Step 1: เปิด dropdown settings — retry จนกว่าปุ่มจะ render (หลัง reload)
+        sendProgress(1, 'กำลังรอหน้า Flow โหลด...');
+        let triggerBtn = null;
+        for (let i = 0; i < 40; i++) {
+            triggerBtn = document.querySelector('button.sc-46973129-1');
+            if (triggerBtn) break;
+            await new Promise(r => setTimeout(r, 500));
+        }
+        if (!triggerBtn) throw new Error('Settings trigger button not found — หน้า Flow อาจโหลดไม่เสร็จ');
         sendProgress(1, 'กำลังเปิดเมนู...');
-        const triggerBtn = document.querySelector('button.sc-46973129-1');
-        if (!triggerBtn) throw new Error('Settings trigger button not found');
         humanClick(triggerBtn);
         await new Promise(r => setTimeout(r, 700));
 
