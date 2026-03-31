@@ -297,16 +297,18 @@ async function runTaskJob(task, logId) {
             chrome.runtime.onMessage.addListener(vidL);
         });
 
-        // TikTok upload
-        const { lastVideoUrl } = await chrome.storage.local.get('lastVideoUrl');
-        if (lastVideoUrl) {
+        // TikTok upload — ถ้า sidepanel เปิดอยู่และ handle อยู่แล้ว ให้ข้ามไป
+        const { lastVideoUrl, sidepanelHandlingUpload } = await chrome.storage.local.get(['lastVideoUrl', 'sidepanelHandlingUpload']);
+        if (sidepanelHandlingUpload) {
+            console.log('[runTaskJob] Sidepanel is handling logo+upload — skipping background TikTok switch');
+        } else if (lastVideoUrl) {
+            // scheduler path (sidepanel ไม่ได้เปิด) — upload ตรงจาก background
             const TIKTOK_URL = 'https://www.tiktok.com/tiktokstudio/upload?from=creator_center';
             const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
             let tiktokTabId;
             if (tiktokTabs.length > 0) {
                 tiktokTabId = tiktokTabs[0].id;
                 if (!tiktokTabs[0].url?.includes('/upload')) {
-                    // อยู่หน้าอื่นของ TikTok Studio — navigate ไปหน้า upload
                     console.log('[Scheduler] TikTok tab not on upload page — navigating...');
                     await chrome.tabs.update(tiktokTabId, { url: TIKTOK_URL, active: true });
                     await new Promise(r => setTimeout(r, 5000));
@@ -329,7 +331,6 @@ async function runTaskJob(task, logId) {
                 });
             });
 
-            // กลับไปหน้า Flow หลังอัปโหลดเสร็จ
             const flowTabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
             if (flowTabs.length > 0) {
                 await chrome.tabs.update(flowTabs[0].id, { active: true });

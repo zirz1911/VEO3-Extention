@@ -17,7 +17,7 @@ async function convertWebmToMp4(webmBlob, onProgress) {
     if (onProgress) ffmpeg.setProgress(onProgress);
     const { fetchFile } = window.FFmpeg;
     ffmpeg.FS('writeFile', 'input.webm', await fetchFile(webmBlob));
-    await ffmpeg.run('-i', 'input.webm', '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', 'output.mp4');
+    await ffmpeg.run('-i', 'input.webm', '-c:v', 'copy', '-c:a', 'copy', '-movflags', '+faststart', 'output.mp4');
     const data = ffmpeg.FS('readFile', 'output.mp4');
     try { ffmpeg.FS('unlink', 'input.webm'); } catch (_) {}
     try { ffmpeg.FS('unlink', 'output.mp4'); } catch (_) {}
@@ -330,7 +330,8 @@ chrome.runtime.onMessage.addListener((message) => {
         progressFill.style.transition = '';
         progressFill.style.width = '100%';
         statusText.innerText = "วิดีโอพร้อม! กำลังใส่ Logo...";
-        chrome.storage.local.set({ jobStatus: { running: true, text: 'กำลังใส่ Logo...' } });
+        // แจ้ง background.js ว่า sidepanel กำลัง handle upload อยู่ — ห้ามสลับ tab เอง
+        chrome.storage.local.set({ jobStatus: { running: true, text: 'กำลังใส่ Logo...' }, sidepanelHandlingUpload: true });
 
         const automationOverlay = document.getElementById('automationOverlay');
 
@@ -359,6 +360,7 @@ chrome.runtime.onMessage.addListener((message) => {
                 statusText.innerText = "กำลังสร้างวิดีโอ.. รอสักครู่";
                 setRunning(false);
                 chrome.storage.local.remove('jobStatus');
+                chrome.storage.local.remove('sidepanelHandlingUpload');
                 if (automationOverlay) automationOverlay.classList.add('hidden');
             }
         })();
