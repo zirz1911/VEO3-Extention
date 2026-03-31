@@ -1,3 +1,9 @@
+// ── Cancellation flag ─────────────────────────────────────────────────────
+let _cancelRequested = false;
+function checkCancelled() {
+    if (_cancelRequested) throw new Error('CANCELLED');
+}
+
 // ── FFmpeg: convert webm → mp4 ────────────────────────────────────────────
 let _ffmpeg = null;
 
@@ -251,17 +257,20 @@ async function prepareAndUploadToTikTok(videoUrl, caption, productId, statusEl) 
 
     if (logoSettings.logoEnabled && logoSettings.logoDataUrl) {
         // ถ้า logo enabled — ต้องเสร็จก่อนถึงจะ upload ได้ ห้าม catch แล้วข้าม
+        checkCancelled();
         sendToFlow('⬇️ [1/4] กำลังดาวน์โหลดวิดีโอ...');
         const fetchResult = await new Promise((res, rej) =>
             chrome.runtime.sendMessage({ action: 'fetchVideoAsBase64', url: videoUrl }, (r) =>
                 r?.error ? rej(new Error(r.error)) : res(r)
             )
         );
+        checkCancelled();
         const fetchRes = await fetch(fetchResult.base64);
         const blob = await fetchRes.blob();
         const sizeMB = Math.round(blob.size / 1024 / 1024 * 10) / 10;
         sendToFlow(`✅ [2/4] โหลดแล้ว ${sizeMB} MB — กำลังใส่ Logo...`);
 
+        checkCancelled();
         const webmBlob = await spTestLogoOverlay(blob, logoSettings.logoDataUrl, {
             sizePct:     logoSettings.logoSize    || 15,
             padding:     logoSettings.logoPadding || 20,
@@ -271,6 +280,7 @@ async function prepareAndUploadToTikTok(videoUrl, caption, productId, statusEl) 
         sendToFlow('🎬 [3/4] Logo เสร็จ! กำลัง Convert เป็น MP4...');
         console.log('[PrepareUpload] Logo done, converting webm→mp4...');
 
+        checkCancelled();
         const mp4Blob = await convertWebmToMp4(webmBlob, ({ ratio }) => {
             const pct = Math.round((ratio || 0) * 100);
             sendToFlow(`🔄 [3/4] Converting MP4... ${pct}%`);
@@ -281,11 +291,13 @@ async function prepareAndUploadToTikTok(videoUrl, caption, productId, statusEl) 
         const reader = new FileReader();
         processedBase64 = await new Promise(res => { reader.onload = () => res(reader.result); reader.readAsDataURL(mp4Blob); });
         processedMimeType = 'video/mp4';
+        checkCancelled();
         sendToFlow('✅ พร้อมแล้ว! กำลังสลับไป TikTok...');
     } else {
         sendToFlow('📤 กำลังเปิด TikTok...');
     }
 
+    checkCancelled();
     // ปิด overlay บนหน้า Flow
     if (flowTabId) chrome.tabs.sendMessage(flowTabId, { action: 'hideLogoProgress' });
 
@@ -344,6 +356,7 @@ chrome.runtime.onMessage.addListener((message) => {
 
         (async () => {
             try {
+                if (_cancelRequested) { console.log('[videoReady] cancelled — skip'); return; }
                 const { lastVideoUrl, formData } = await chrome.storage.local.get(['lastVideoUrl', 'formData']);
                 const caption   = document.getElementById('captionInput').value.trim() || formData?.caption || '';
                 const productId = document.getElementById('productIdInput').value.trim() || formData?.productId || '';
@@ -358,10 +371,12 @@ chrome.runtime.onMessage.addListener((message) => {
                 statusText.innerText = "อัปโหลดเสร็จ! กลับไปหน้า Flow...";
                 await switchToFlow();
             } catch (err) {
-                console.error("TikTok flow error:", err);
-                statusText.innerText = "Error: " + err.message;
+                if (err.message !== 'CANCELLED') {
+                    console.error("TikTok flow error:", err);
+                    statusText.innerText = "Error: " + err.message;
+                }
             } finally {
-                await new Promise(r => setTimeout(r, 3000));
+                if (!_cancelRequested) await new Promise(r => setTimeout(r, 3000));
                 statusBar.classList.add('hidden');
                 progressFill.style.width = '0%';
                 statusText.innerText = "กำลังสร้างวิดีโอ.. รอสักครู่";
@@ -810,6 +825,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Shared cancel logic ───────────────────────────────────────────────
     async function cancelAutomation() {
+        _cancelRequested = true;
         try {
             const flowTabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
             if (flowTabs.length > 0) chrome.tabs.sendMessage(flowTabs[0].id, { action: 'cancelJob' });
@@ -819,14 +835,18 @@ document.addEventListener('DOMContentLoaded', () => {
         statusBar.classList.add('hidden');
         progressFill.classList.remove('pulse');
         progressFill.style.width = '0%';
-        statusText.innerText = 'กำลังสร้างวิดีโอ.. รอสักครู่';
+        statusText.innerText = 'ยกเลิกแล้ว';
         setRunning(false);
         chrome.storage.local.remove('jobStatus');
+        chrome.storage.local.remove('sidepanelHandlingUpload');
         console.log('Automation cancelled by user');
+        // reset flag หลัง 1 วิ เผื่อ finally block ที่ยังค้างอยู่ได้เห็น
+        setTimeout(() => { _cancelRequested = false; }, 1000);
     }
 
     document.getElementById('statusCancelBtn').addEventListener('click', cancelAutomation);
     document.getElementById('overlayCancelBtn').addEventListener('click', cancelAutomation);
+    document.getElementById('overlayCancelBig').addEventListener('click', cancelAutomation);
     if (cancelTaskBtn) cancelTaskBtn.addEventListener('click', cancelAutomation);
 
     // ── Restore state on popup open ───────────────────────────────────────
