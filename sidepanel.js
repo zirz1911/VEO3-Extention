@@ -13,7 +13,7 @@ async function ensureTikTokStudioOpen({ focus = false } = {}) {
         if (!tab.url?.includes('/upload')) {
             // อยู่หน้าอื่นของ TikTok Studio — navigate ไปหน้า upload
             console.log('TikTok Studio open but not on upload page — navigating...');
-            await chrome.tabs.update(tab.id, { url: TIKTOK_URL, active: true });
+            await chrome.tabs.update(tab.id, { url: TIKTOK_URL, active: focus });
             await waitForTabComplete(tab.id);
         } else if (focus) {
             await chrome.tabs.update(tab.id, { active: true });
@@ -188,7 +188,7 @@ async function spTestLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding
 }
 
 // ── Logo pre-process BEFORE switching to TikTok (manual flow) ────────────────
-async function prepareAndUploadToTikTok(tiktokTabId, videoUrl, caption, productId, statusEl) {
+async function prepareAndUploadToTikTok(videoUrl, caption, productId, statusEl) {
     const setStatus = (msg) => { if (statusEl) statusEl.innerText = msg; console.log('[PrepareUpload]', msg); };
 
     const logoSettings = await new Promise(r =>
@@ -218,7 +218,7 @@ async function prepareAndUploadToTikTok(tiktokTabId, videoUrl, caption, productI
                 onStatus:    setStatus
             });
 
-            setStatus('📦 Logo เสร็จแล้ว! เตรียมส่งไป TikTok...');
+            setStatus('📦 Logo เสร็จแล้ว! กำลังเปิด TikTok...');
             const reader = new FileReader();
             processedBase64 = await new Promise(res => { reader.onload = () => res(reader.result); reader.readAsDataURL(processedBlob); });
             processedMimeType = processedBlob.type;
@@ -228,12 +228,17 @@ async function prepareAndUploadToTikTok(tiktokTabId, videoUrl, caption, productI
             setStatus('⚠️ Logo ใส่ไม่ได้ (' + err.message + ') — upload ต่อแบบไม่มี Logo');
         }
     } else {
-        setStatus('📤 กำลังสลับไป TikTok...');
+        setStatus('📤 กำลังเปิด TikTok...');
     }
 
-    // สลับมาหน้า TikTok หลังจาก process logo เสร็จ
-    await chrome.tabs.update(tiktokTabId, { active: true });
-    await sendToTikTok(tiktokTabId, {
+    // เปิด TikTok tab (ไม่ switch focus) — หลังจาก logo เสร็จเรียบร้อยแล้วเท่านั้น
+    await ensureTikTokStudioOpen({ focus: false });
+    const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
+    if (tiktokTabs.length === 0) throw new Error('TikTok tab not found after open');
+
+    // สลับมาหน้า TikTok แล้ว upload
+    await chrome.tabs.update(tiktokTabs[0].id, { active: true });
+    await sendToTikTok(tiktokTabs[0].id, {
         action: 'uploadVideo',
         videoUrl,
         caption,
@@ -288,16 +293,8 @@ chrome.runtime.onMessage.addListener((message) => {
                     return;
                 }
 
-                await ensureTikTokStudioOpen({ focus: false });
-
-                const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
-                if (tiktokTabs.length === 0) {
-                    console.warn("TikTok tab not found after retry — skipping upload");
-                    return;
-                }
-
-                // process logo BEFORE switching — progress shows in sidepanel
-                await prepareAndUploadToTikTok(tiktokTabs[0].id, lastVideoUrl, caption, productId, statusText);
+                // Logo processing + TikTok open + upload (ไม่สลับ tab จนกว่า logo เสร็จ)
+                await prepareAndUploadToTikTok(lastVideoUrl, caption, productId, statusText);
                 statusText.innerText = "อัปโหลดเสร็จ! กลับไปหน้า Flow...";
                 await switchToFlow();
             } catch (err) {
@@ -1299,10 +1296,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.disabled = true;
 
         try {
-            await ensureTikTokStudioOpen({ focus: true });
-            await switchToTikTok();
-            await new Promise(r => setTimeout(r, 3000));
-
             const { lastVideoUrl } = await chrome.storage.local.get('lastVideoUrl');
             if (!lastVideoUrl) {
                 alert('ไม่พบ Video URL');
@@ -1311,17 +1304,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const tiktokTabs = await chrome.tabs.query({ url: 'https://www.tiktok.com/tiktokstudio/*' });
-            if (tiktokTabs.length === 0) {
-                alert('ไม่พบ TikTok Studio tab');
-                btn.innerText = '📤 Test TikTok';
-                btn.disabled = false;
-                return;
-            }
-
             const caption   = cleanCaption(document.getElementById('captionInput').value);
             const productId = document.getElementById('productIdInput').value.trim();
-            await prepareAndUploadToTikTok(tiktokTabs[0].id, lastVideoUrl, caption, productId, null);
+            await prepareAndUploadToTikTok(lastVideoUrl, caption, productId, null);
 
         } catch (err) {
             alert('Error: ' + err.message);
