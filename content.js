@@ -141,7 +141,6 @@ async function handleImageGeneration(data) {
         humanClick(addBtn);
         console.log('✅ Clicked + button');
         await new Promise(r => setTimeout(r, 700));
-        await dismissNoticeDialog();
 
         // Step 7: อัปโหลด Face Reference
         if (data.faceImageData) {
@@ -166,7 +165,6 @@ async function handleImageGeneration(data) {
             robustClick(addBtn2);
             console.log('✅ robustClick + button (2nd time)');
             await new Promise(r => setTimeout(r, 700));
-            await dismissNoticeDialog();
 
             sendProgress(7.6, 'อัปโหลด Product Image...');
             await clickUploadImage(data.productImageData);
@@ -390,6 +388,7 @@ async function clickUploadImage(imageData) {
     // กดปุ่ม
     btn.click();
     console.log("✅ Clicked Upload button");
+    await dismissNoticeDialog();
     await new Promise(r => setTimeout(r, 800));
     observer.disconnect();
 
