@@ -1277,6 +1277,60 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
+    // ── Test Logo Download Button ─────────────────────────────────────────
+    // ดาวน์โหลดวิดีโอล่าสุดจาก lastVideoUrl + ใส่ Logo + save ไฟล์ (ไม่เปลือง credit)
+    document.getElementById('testLogoDownloadBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('testLogoDownloadBtn');
+        const statusEl = document.getElementById('testLogoDownloadStatus');
+        const setStatus = (msg) => { statusEl.textContent = msg; console.log('[TestLogoDownload]', msg); };
+
+        btn.disabled = true;
+        setStatus('');
+
+        try {
+            const { lastVideoUrl, logoEnabled, logoDataUrl, logoSize, logoPadding, logoPosFrac } =
+                await new Promise(r => chrome.storage.local.get(['lastVideoUrl', 'logoEnabled', 'logoDataUrl', 'logoSize', 'logoPadding', 'logoPosFrac'], r));
+
+            if (!lastVideoUrl) { setStatus('❌ ยังไม่มีวิดีโอ — รัน Flow ก่อน'); btn.disabled = false; return; }
+
+            // debug: แสดงสถานะ logo settings
+            console.log('[TestLogoDownload] logoEnabled:', logoEnabled, '| hasDataUrl:', !!logoDataUrl);
+
+            if (!logoEnabled) { setStatus('⚠️ Logo ยังไม่ได้เปิด — เปิดใน Settings ก่อน'); btn.disabled = false; return; }
+            if (!logoDataUrl)  { setStatus('⚠️ ยังไม่ได้อัปโหลด Logo Image ใน Settings'); btn.disabled = false; return; }
+
+            setStatus('⬇️ กำลังดาวน์โหลดวิดีโอ...');
+            const fetchResult = await new Promise((res, rej) =>
+                chrome.runtime.sendMessage({ action: 'fetchVideoAsBase64', url: lastVideoUrl }, (r) =>
+                    r?.error ? rej(new Error(r.error)) : res(r)
+                )
+            );
+            const fetchRes = await fetch(fetchResult.base64);
+            const blob = await fetchRes.blob();
+            setStatus(`✅ ดาวน์โหลดแล้ว ${Math.round(blob.size/1024/1024*10)/10} MB — กำลังใส่ Logo...`);
+
+            const processed = await spTestLogoOverlay(blob, logoDataUrl, {
+                sizePct:     logoSize    || 15,
+                padding:     logoPadding || 20,
+                logoPosFrac: logoPosFrac || null,
+                onStatus:    setStatus
+            });
+
+            setStatus('✅ เสร็จ! กำลัง Download...');
+            const url = URL.createObjectURL(processed);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'logo_preview_' + Date.now() + '.webm';
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+            setStatus(`✅ Done ${Math.round(processed.size/1024/1024*10)/10} MB`);
+        } catch (err) {
+            setStatus('❌ ' + err.message);
+            console.error('[TestLogoDownload]', err);
+        }
+        btn.disabled = false;
+    });
+
     // ── Shared AI call helper ─────────────────────────────────────────────
     async function callAI(prompt, selectedModel, chatgptKey, googleKey, maxTokens = 300) {
         if (selectedModel === 'chatgpt') {
