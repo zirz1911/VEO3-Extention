@@ -93,7 +93,6 @@ async function spTestLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding
     onStatus?.('⏳ กำลังโหลด Video metadata...');
     const video = document.createElement('video');
     video.playsInline = true;
-    video.muted = true;
     const videoObjectUrl = URL.createObjectURL(videoBlob);
     video.src = videoObjectUrl;
     await new Promise((res, rej) => {
@@ -122,48 +121,69 @@ async function spTestLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding
     canvas.height = H;
     const ctx = canvas.getContext('2d');
 
-    const stream = canvas.captureStream(30);
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-        ? 'video/webm;codecs=vp9' : 'video/webm';
-    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
+    // Audio routing: video → AudioContext → MediaStreamDestination
+    let audioCtx, audioStream;
+    try {
+        audioCtx  = new AudioContext();
+        const src  = audioCtx.createMediaElementSource(video);
+        const dest = audioCtx.createMediaStreamDestination();
+        src.connect(dest);
+        src.connect(audioCtx.destination);
+        audioStream = dest.stream;
+    } catch (e) {
+        console.warn('[Logo] Audio routing failed, no audio:', e.message);
+        audioStream = null;
+    }
+
+    // รวม video stream + audio stream
+    const canvasStream = canvas.captureStream(30);
+    const tracks = [...canvasStream.getVideoTracks()];
+    if (audioStream) tracks.push(...audioStream.getAudioTracks());
+    const combined = new MediaStream(tracks);
+
+    const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+        .find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
+    const recorder = new MediaRecorder(combined, { mimeType, videoBitsPerSecond: 8_000_000 });
     const chunks = [];
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
 
-    recorder.start(100);
-    video.play();
+    let animId;
+    function drawFrame() {
+        if (video.paused || video.ended) return;
+        ctx.drawImage(video, 0, 0, W, H);
+        ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+        animId = requestAnimationFrame(drawFrame);
+    }
 
-    await new Promise((res) => {
+    return new Promise((res, rej) => {
+        recorder.onstop = () => {
+            cancelAnimationFrame(animId);
+            if (audioCtx) audioCtx.close().catch(() => {});
+            URL.revokeObjectURL(videoObjectUrl);
+            res(new Blob(chunks, { type: mimeType }));
+        };
+        recorder.onerror = (e) => rej(e.error);
+
+        recorder.start(100);
+        video.play().catch(e => console.warn('[Logo] video.play():', e.message));
+
         let frameCount = 0;
-        function drawFrame() {
-            if (video.ended || video.paused) {
-                ctx.drawImage(video, 0, 0, W, H);
-                ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
-                res();
-                return;
-            }
-            ctx.drawImage(video, 0, 0, W, H);
-            ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
-            frameCount++;
-            if (frameCount % 30 === 0) {
-                const pct = Math.round((video.currentTime / (video.duration || 1)) * 100);
+        const progressTick = setInterval(() => {
+            if (video.duration) {
+                const pct = Math.round((video.currentTime / video.duration) * 100);
                 onStatus?.(`⏳ Encoding... ${pct}% (${Math.round(video.currentTime)}s / ${Math.round(video.duration)}s)`);
             }
-            requestAnimationFrame(drawFrame);
-        }
+            frameCount++;
+        }, 1000);
+
         video.onended = () => {
+            clearInterval(progressTick);
             ctx.drawImage(video, 0, 0, W, H);
             ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
-            setTimeout(res, 300);
+            setTimeout(() => recorder.stop(), 300);
         };
+
         requestAnimationFrame(drawFrame);
-    });
-
-    recorder.stop();
-    URL.revokeObjectURL(videoObjectUrl);
-
-    return await new Promise((res, rej) => {
-        recorder.onstop = () => res(new Blob(chunks, { type: mimeType }));
-        recorder.onerror = (e) => rej(e.error);
     });
 }
 
