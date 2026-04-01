@@ -69,6 +69,7 @@ async function handleImageGeneration(data) {
         sendProgress(1, 'กำลังรอหน้า Flow โหลด...');
         let triggerBtn = null;
         for (let i = 0; i < 40; i++) {
+            if (_jobCancelled) throw new Error('CANCELLED');
             triggerBtn = document.querySelector('button.sc-46973129-1');
             if (triggerBtn) break;
             await new Promise(r => setTimeout(r, 500));
@@ -82,6 +83,7 @@ async function handleImageGeneration(data) {
         sendProgress(2, 'เลือกประเภทรูปภาพ...');
         let imageTab = null;
         for (let i = 0; i < 20; i++) {
+            if (_jobCancelled) throw new Error('CANCELLED');
             imageTab = document.querySelector('button[aria-controls$="-content-IMAGE"]');
             if (imageTab) break;
             await new Promise(r => setTimeout(r, 200));
@@ -146,6 +148,7 @@ async function handleImageGeneration(data) {
         sendProgress(6, 'กดปุ่ม + เพื่อเปิด input area...');
         let addBtn = null;
         for (let i = 0; i < 20; i++) {
+            if (_jobCancelled) throw new Error('CANCELLED');
             addBtn = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]]');
             if (addBtn) break;
             await new Promise(r => setTimeout(r, 300));
@@ -168,16 +171,23 @@ async function handleImageGeneration(data) {
             console.log('🔍 Looking for + button (2nd time)...');
             let addBtn2 = null;
             for (let i = 0; i < 20; i++) {
-                // ลอง selector หลายแบบ เผื่อ aria-haspopup เปลี่ยนหลัง upload แรก
+                if (_jobCancelled) throw new Error('CANCELLED');
                 addBtn2 = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]]')
                     || xpathFind('//button[.//i[normalize-space(text())="add_2"]]');
                 if (addBtn2) { console.log(`✅ Found + button on try ${i+1}`); break; }
                 await new Promise(r => setTimeout(r, 300));
             }
             if (!addBtn2) throw new Error('+ (add_2) button not found for 2nd upload');
-            robustClick(addBtn2);
-            console.log('✅ robustClick + button (2nd time)');
-            await new Promise(r => setTimeout(r, 700));
+            humanClick(addBtn2);
+            console.log('✅ humanClick + button (2nd time)');
+
+            // รอ dialog เปิดจริงก่อน (ไม่รีบ inject)
+            for (let i = 0; i < 30; i++) {
+                if (_jobCancelled) throw new Error('CANCELLED');
+                if (document.querySelector('.sc-dbfb6b4a-0')) { console.log('✅ Dialog open (2nd)'); break; }
+                await new Promise(r => setTimeout(r, 300));
+            }
+            await new Promise(r => setTimeout(r, 500));
 
             sendProgress(7.6, 'อัปโหลด Product Image...');
             await clickUploadImage(data.productImageData);
@@ -219,9 +229,13 @@ async function handleImageGeneration(data) {
         console.log('✅ Image download complete');
 
     } catch (error) {
-        console.error('❌ Image generation error:', error);
         removeFlowOverlay();
-        safeSendMessage({ action: 'videoError', error: error.message });
+        if (error.message === 'CANCELLED') {
+            console.log('🛑 Image generation cancelled');
+        } else {
+            console.error('❌ Image generation error:', error);
+            safeSendMessage({ action: 'videoError', error: error.message });
+        }
     }
 }
 
@@ -321,9 +335,13 @@ async function handleGeneration(data) {
         console.log("✅ Notified side panel: videoReady");
 
     } catch (error) {
-        console.error("Error during generation:", error);
         removeFlowOverlay();
-        safeSendMessage({ action: "videoError", error: error.message });
+        if (error.message === 'CANCELLED') {
+            console.log('🛑 Video generation cancelled');
+        } else {
+            console.error("Error during generation:", error);
+            safeSendMessage({ action: "videoError", error: error.message });
+        }
     }
 }
 
@@ -436,6 +454,7 @@ async function waitForUploadAndSelect() {
     // รอจน img src ของ item[0] เปลี่ยน (= ภาพใหม่ขึ้นมาอยู่บนสุด)
     let newItem = null;
     for (let i = 0; i < 60; i++) {
+        if (_jobCancelled) throw new Error('CANCELLED');
         const firstImg = document.querySelector('[data-index="0"] img');
         if (firstImg && firstImg.src !== firstImgBefore) {
             newItem = document.querySelector('[data-index="0"]');
@@ -458,6 +477,7 @@ async function waitForUploadAndSelect() {
     // รอ dialog ปิด (sc-dbfb6b4a-0 หายออกจาก DOM หรือ Slate editor พร้อม)
     console.log("⏳ Waiting for dialog to close...");
     for (let i = 0; i < 30; i++) {
+        if (_jobCancelled) throw new Error('CANCELLED');
         const dialogStillOpen = document.querySelector('.sc-dbfb6b4a-0');
         if (!dialogStillOpen) {
             console.log("✅ Dialog closed");
