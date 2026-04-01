@@ -189,7 +189,14 @@ async function handleImageGeneration(data) {
 
                 try {
                     sendProgress(7.6, `อัปโหลด Product Image... (ครั้งที่ ${attempt})`);
-                    await clickUploadImage(data.productImageData);
+                    // reopenDialog: กด + แล้วรอ 700ms — เหมือนกับที่ face ref ทำ
+                    const reopenDialog = async () => {
+                        const btn2 = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]]')
+                            || xpathFind('//button[.//i[normalize-space(text())="add_2"]]');
+                        if (btn2) { humanClick(btn2); console.log('✅ reopenDialog: humanClick +'); }
+                        await new Promise(r => setTimeout(r, 700));
+                    };
+                    await clickUploadImage(data.productImageData, reopenDialog);
                     uploaded = true;
                     console.log('✅ Product image uploaded successfully');
                 } catch (e) {
@@ -371,7 +378,8 @@ async function clickStart() {
 }
 
 // ── Step 2: block file input ทั้งที่มีอยู่แล้ว + ที่จะสร้างใหม่ แล้ว inject ──
-async function clickUploadImage(imageData) {
+// reopenDialog: optional async fn ที่จะถูกเรียกถ้าหาปุ่ม upload ไม่เจอ (เช่น กด + แล้วรอ)
+async function clickUploadImage(imageData, reopenDialog = null) {
     console.log("Step 2: Setting up file input blocker...");
     const xpath = '//div[.//i[contains(@class,"google-symbols") and normalize-space(text())="upload"] and .//*[normalize-space(text())="อัปโหลดรูปภาพ"]]';
 
@@ -381,23 +389,16 @@ async function clickUploadImage(imageData) {
     const blob = await res.blob();
     const file = new File([blob], "product_image.png", { type: "image/png" });
 
-    // รอปุ่ม Upload — ถ้าไม่เจอให้กดปุ่ม เริ่ม ก่อน แล้วรออีกรอบ
+    // รอปุ่ม Upload — ถ้าไม่เจอให้ reopenDialog (ถ้ามี) แล้วลองอีกรอบ
     let btn = null;
     for (let i = 0; i < 20; i++) {
         btn = getElementByXPath(xpath);
         if (btn) break;
         await new Promise(r => setTimeout(r, 500));
     }
-    if (!btn) {
-        console.warn("⚠️ Upload button not found — clicking เริ่ม button first");
-        const startBtn = document.querySelector('div[type="button"].sc-5496b68c-1');
-        if (startBtn) {
-            humanClick(startBtn);
-            console.log("✅ Clicked เริ่ม button");
-            await new Promise(r => setTimeout(r, 1000));
-        } else {
-            console.warn("⚠️ เริ่ม button not found either");
-        }
+    if (!btn && reopenDialog) {
+        console.warn("⚠️ Upload button not found — re-opening dialog via +");
+        await reopenDialog();
         for (let i = 0; i < 20; i++) {
             btn = getElementByXPath(xpath);
             if (btn) break;
