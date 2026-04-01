@@ -218,7 +218,7 @@ async function spTestLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding
         };
         recorder.onerror = (e) => rej(e.error);
 
-        recorder.start(100);
+        // เล่นวิดีโอก่อน รอ 1 frame ให้ canvas ได้เฟรมจริง แล้วค่อย start recorder
         video.play().catch(e => console.warn('[Logo] video.play():', e.message));
 
         let frameCount = 0;
@@ -237,7 +237,13 @@ async function spTestLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding
             setTimeout(() => recorder.stop(), 300);
         };
 
-        requestAnimationFrame(drawFrame);
+        // draw เฟรมแรกก่อน แล้วค่อย start — ป้องกัน cover ดำ
+        requestAnimationFrame(() => {
+            ctx.drawImage(video, 0, 0, W, H);
+            ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+            recorder.start(100);
+            requestAnimationFrame(drawFrame);
+        });
     });
 }
 
