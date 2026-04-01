@@ -209,6 +209,15 @@ async function spTestLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding
         animId = requestAnimationFrame(drawFrame);
     }
 
+    // seek ไป 0.1s เพื่อ force decode เฟรมจริง → draw เป็น cover frame → seek กลับ 0 → play
+    // (ต้องทำก่อน return new Promise เพราะต้องใช้ await ใน async function)
+    video.currentTime = 0.1;
+    await new Promise(r => { video.onseeked = r; });
+    ctx.drawImage(video, 0, 0, W, H);
+    ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
+    video.currentTime = 0;
+    await new Promise(r => { video.onseeked = r; });
+
     return new Promise((res, rej) => {
         recorder.onstop = () => {
             cancelAnimationFrame(animId);
@@ -234,14 +243,7 @@ async function spTestLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding
             setTimeout(() => recorder.stop(), 300);
         };
 
-        // seek ไป 0.1s เพื่อ force decode เฟรมจริง → draw เป็น cover frame → seek กลับ 0 → play
-        video.currentTime = 0.1;
-        await new Promise(r => { video.onseeked = r; });
-        ctx.drawImage(video, 0, 0, W, H);
-        ctx.drawImage(logoImg, logoX, logoY, logoW, logoH);
         recorder.start(100);
-        video.currentTime = 0;
-        await new Promise(r => { video.onseeked = r; });
         video.play().catch(e => console.warn('[Logo] video.play():', e.message));
         requestAnimationFrame(drawFrame);
     });
