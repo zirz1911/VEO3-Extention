@@ -44,7 +44,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 let addBtn = null;
                 for (let i = 0; i < 20; i++) {
                     if (_jobCancelled) throw new Error('CANCELLED');
-                    addBtn = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]][.//span[normalize-space(text())="สร้าง"]]');
+                    addBtn = xpathFind("//button[.//span[text()='สร้าง' or text()='Create']]");
                     if (addBtn) break;
                     await new Promise(r => setTimeout(r, 300));
                 }
@@ -66,8 +66,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     let addBtn2 = null;
                     for (let i = 0; i < 20; i++) {
                         if (_jobCancelled) throw new Error('CANCELLED');
-                        addBtn2 = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]][.//span[normalize-space(text())="สร้าง"]]')
-                            || xpathFind('//button[.//i[normalize-space(text())="add_2"]]');
+                        addBtn2 = xpathFind("//button[.//span[text()='สร้าง' or text()='Create']]");
                         if (addBtn2) break;
                         await new Promise(r => setTimeout(r, 300));
                     }
@@ -76,8 +75,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     await new Promise(r => setTimeout(r, 1500));
 
                     const reopenDialog = async () => {
-                        const btn2 = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]][.//span[normalize-space(text())="สร้าง"]]')
-                            || xpathFind('//button[.//i[normalize-space(text())="add_2"]]');
+                        const btn2 = xpathFind("//button[.//span[text()='สร้าง' or text()='Create']]");
                         if (btn2) { humanClick(btn2); }
                         await new Promise(r => setTimeout(r, 700));
                     };
@@ -223,7 +221,7 @@ async function handleImageGeneration(data) {
         let addBtn = null;
         for (let i = 0; i < 20; i++) {
             if (_jobCancelled) throw new Error('CANCELLED');
-            addBtn = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]][.//span[normalize-space(text())="สร้าง"]]');
+            addBtn = xpathFind("//button[.//span[text()='สร้าง' or text()='Create']]");
             if (addBtn) break;
             await new Promise(r => setTimeout(r, 300));
         }
@@ -250,7 +248,7 @@ async function handleImageGeneration(data) {
                 let addBtn2 = null;
                 for (let i = 0; i < 20; i++) {
                     if (_jobCancelled) throw new Error('CANCELLED');
-                    addBtn2 = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]][.//span[normalize-space(text())="สร้าง"]]');
+                    addBtn2 = xpathFind("//button[.//span[text()='สร้าง' or text()='Create']]");
                     if (addBtn2) { console.log(`✅ Found + button on try ${i+1}`); break; }
                     await new Promise(r => setTimeout(r, 300));
                 }
@@ -264,8 +262,7 @@ async function handleImageGeneration(data) {
                     sendProgress(8.6, `อัปโหลด Product Image... (ครั้งที่ ${attempt})`);
                     // reopenDialog: กด + แล้วรอ 700ms — เหมือนกับที่ face ref ทำ
                     const reopenDialog = async () => {
-                        const btn2 = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]][.//span[normalize-space(text())="สร้าง"]]')
-                            || xpathFind('//button[.//i[normalize-space(text())="add_2"]]');
+                        const btn2 = xpathFind("//button[.//span[text()='สร้าง' or text()='Create']]");
                         if (btn2) { humanClick(btn2); console.log('✅ reopenDialog: humanClick +'); }
                         await new Promise(r => setTimeout(r, 700));
                     };
@@ -447,7 +444,7 @@ async function clickStart() {
 // reopenDialog: optional async fn ที่จะถูกเรียกถ้าหาปุ่ม upload ไม่เจอ (เช่น กด + แล้วรอ)
 async function clickUploadImage(imageData, reopenDialog = null) {
     console.log("Step 2: Setting up file input blocker...");
-    const xpath = '//div[.//i[contains(@class,"google-symbols") and normalize-space(text())="upload"] and .//*[normalize-space(text())="อัปโหลดรูปภาพ"]]';
+    const xpath = "//div[contains(text(),'อัปโหลดรูปภาพ') or contains(text(),'Upload')]";
 
     if (!imageData) { console.warn("⚠️ No imageData"); return; }
 
