@@ -57,6 +57,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 });
 
+// ── Cancel Automation (from Flow page overlay button) ────────────────────────
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'cancelAutomation') {
+        chrome.tabs.query({ url: 'https://labs.google/*' }, (tabs) => {
+            tabs.forEach(tab => chrome.tabs.sendMessage(tab.id, { action: 'cancelJob' }, () => chrome.runtime.lastError));
+        });
+        chrome.storage.local.set({ jobStatus: { running: false, cancelled: true, text: 'ยกเลิกแล้ว' } });
+        chrome.storage.local.remove('sidepanelHandlingUpload');
+        sendResponse({ ok: true });
+    }
+});
+
 // ── Persist job state so popup can restore after close/reopen ────────────────
 chrome.runtime.onMessage.addListener((message) => {
     if (message.action === 'progress') {

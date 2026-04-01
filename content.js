@@ -253,6 +253,7 @@ async function handleGeneration(data) {
 
         let videoTab = null;
         for (let i = 0; i < 20; i++) {
+            if (_jobCancelled) throw new Error('CANCELLED');
             videoTab = document.querySelector('button[aria-controls$="-content-VIDEO"]');
             if (videoTab) break;
             await new Promise(r => setTimeout(r, 200));
@@ -347,7 +348,7 @@ async function clickStart() {
 // ── Step 2: block file input ทั้งที่มีอยู่แล้ว + ที่จะสร้างใหม่ แล้ว inject ──
 async function clickUploadImage(imageData) {
     console.log("Step 2: Setting up file input blocker...");
-    const xpath = '//button[.//i[contains(@class,"google-symbols") and normalize-space(text())="upload"]]';
+    const xpath = '//div[.//i[contains(@class,"google-symbols") and normalize-space(text())="upload"] and .//*[normalize-space(text())="อัปโหลดรูปภาพ"]]';
 
     if (!imageData) { console.warn("⚠️ No imageData"); return; }
 
@@ -665,17 +666,27 @@ async function waitForImageReady() {
     // จำจำนวน image tile ก่อน generate
     const countBefore = document.querySelectorAll('.sc-5923b123-0[data-tile-id]').length;
 
-    await new Promise((resolve) => {
+    await new Promise((resolve, reject) => {
+        const cancelCheck = setInterval(() => {
+            if (_jobCancelled) {
+                clearInterval(cancelCheck);
+                observer.disconnect();
+                reject(new Error('CANCELLED'));
+            }
+        }, 500);
+
         const observer = new MutationObserver(() => {
             const countNow = document.querySelectorAll('.sc-5923b123-0[data-tile-id]').length;
             if (countNow > countBefore) {
                 console.log(`✅ New image tile detected (${countBefore} → ${countNow})`);
+                clearInterval(cancelCheck);
                 observer.disconnect();
                 resolve();
                 return;
             }
             if (Date.now() - start > MAX_WAIT_MS) {
                 console.warn('⚠️ Timeout waiting for image');
+                clearInterval(cancelCheck);
                 observer.disconnect();
                 resolve();
             }
@@ -793,11 +804,20 @@ async function waitForVideoReady() {
     }
 
     await new Promise((resolve, reject) => {
+        const cancelCheck = setInterval(() => {
+            if (_jobCancelled) {
+                clearInterval(cancelCheck);
+                observer.disconnect();
+                reject(new Error('CANCELLED'));
+            }
+        }, 500);
+
         const observer = new MutationObserver(() => {
             // เช็ค failure ก่อนเลย — ถ้าพบให้ reject ทันที ไม่รอ timeout
             const errText = getFailureText();
             if (errText) {
                 console.warn('⚠️ Video generation failed (early detect):', errText);
+                clearInterval(cancelCheck);
                 observer.disconnect();
                 reject(new Error(errText));
                 return;
@@ -807,6 +827,7 @@ async function waitForVideoReady() {
             const videoNow = document.querySelectorAll('video').length;
             if (videoNow > videoBefore) {
                 console.log(`✅ New video element detected (${videoBefore} → ${videoNow})`);
+                clearInterval(cancelCheck);
                 observer.disconnect();
                 resolve();
                 return;
@@ -816,6 +837,7 @@ async function waitForVideoReady() {
             const downloadBtn = document.querySelector('[aria-label*="download" i], [aria-label*="save" i], [title*="download" i]');
             if (downloadBtn) {
                 console.log("✅ Download button detected");
+                clearInterval(cancelCheck);
                 observer.disconnect();
                 resolve();
                 return;
@@ -823,6 +845,7 @@ async function waitForVideoReady() {
 
             // Timeout
             if (Date.now() - start > MAX_WAIT_MS) {
+                clearInterval(cancelCheck);
                 observer.disconnect();
                 const t = getFailureText();
                 if (t) {

@@ -1522,6 +1522,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Shared AI call helper ─────────────────────────────────────────────
     async function callAI(prompt, selectedModel, chatgptKey, googleKey, maxTokens = 300) {
+        if (selectedModel === 'chatgpt' && !chatgptKey) {
+            throw new Error('กรุณาตั้งค่า ChatGPT API Key ใน Settings ก่อนใช้งาน');
+        }
+        if (selectedModel === 'gemini' && !googleKey) {
+            throw new Error('กรุณาตั้งค่า Google API Key ใน Settings ก่อนใช้งาน');
+        }
         if (selectedModel === 'chatgpt') {
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
@@ -1595,6 +1601,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 expandedScript = (await callAI(buildScriptExpandPrompt(), selectedModel, chatgptKey, googleKey, 200)).trim();
                 console.log('[Script] Generated:', expandedScript);
             } catch (e) {
+                if (e.message.includes('API Key')) throw e; // re-throw key errors to outer catch
                 console.warn('[Script] AI failed, using brief:', e.message);
                 expandedScript = document.getElementById('scriptInput')?.value.trim() || '';
             }
