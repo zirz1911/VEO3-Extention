@@ -1408,6 +1408,58 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // ── Test Upload Image Button ──────────────────────────────────────────
+    document.getElementById('testUploadImageBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('testUploadImageBtn');
+        btn.innerText = 'Uploading...';
+        btn.disabled = true;
+
+        try {
+            const tabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
+            if (!tabs.length) {
+                alert('กรุณาเปิด labs.google ก่อน');
+                btn.innerText = '🖼️ Test Upload';
+                btn.disabled = false;
+                return;
+            }
+
+            // อ่าน face + product image data จาก preview หรือ input
+            const readFile = (file) => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload  = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+
+            let faceImageData    = (!faceImagePreview.classList.contains('hidden') && faceImagePreview.src) ? faceImagePreview.src : null;
+            let productImageData = (!imagePreview.classList.contains('hidden') && imagePreview.src) ? imagePreview.src : null;
+
+            if (faceImageInput.files[0])    faceImageData    = await readFile(faceImageInput.files[0]);
+            if (productImageInput.files[0]) productImageData = await readFile(productImageInput.files[0]);
+
+            if (!faceImageData && !productImageData) {
+                alert('ไม่มีรูปให้อัปโหลด — กรุณาเลือก Face หรือ Product Image ก่อน');
+                btn.innerText = '🖼️ Test Upload';
+                btn.disabled = false;
+                return;
+            }
+
+            chrome.tabs.sendMessage(tabs[0].id, {
+                action: 'testUpload',
+                faceImageData,
+                productImageData
+            }, () => {
+                if (chrome.runtime.lastError) alert('Error: ' + chrome.runtime.lastError.message);
+            });
+
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+
+        btn.innerText = '🖼️ Test Upload';
+        btn.disabled = false;
+    });
+
     // ── Test TikTok Button ────────────────────────────────────────────────
     document.getElementById('testUploadBtn').addEventListener('click', async () => {
         const btn = document.getElementById('testUploadBtn');

@@ -33,6 +33,73 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
         sendResponse({ status: "started" });
     }
+    if (request.action === "testUpload") {
+        console.log("🧪 Test Upload triggered");
+        _jobCancelled = false;
+        (async () => {
+            showFlowOverlay();
+            try {
+                // กด + เพื่อเปิด dialog
+                sendProgress(1, 'กดปุ่ม + เพื่อเปิด upload dialog...');
+                let addBtn = null;
+                for (let i = 0; i < 20; i++) {
+                    if (_jobCancelled) throw new Error('CANCELLED');
+                    addBtn = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]]');
+                    if (addBtn) break;
+                    await new Promise(r => setTimeout(r, 300));
+                }
+                if (!addBtn) throw new Error('+ (add_2) button not found');
+                humanClick(addBtn);
+                await new Promise(r => setTimeout(r, 700));
+
+                // อัปโหลด Face Reference
+                if (request.faceImageData) {
+                    sendProgress(2, 'อัปโหลด Face Reference...');
+                    await clickUploadImage(request.faceImageData);
+                    await new Promise(r => setTimeout(r, 800));
+                    console.log('✅ Face uploaded');
+                }
+
+                // กด + อีกครั้ง + อัปโหลด Product
+                if (request.productImageData) {
+                    sendProgress(3, 'อัปโหลด Product Image...');
+                    let addBtn2 = null;
+                    for (let i = 0; i < 20; i++) {
+                        if (_jobCancelled) throw new Error('CANCELLED');
+                        addBtn2 = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]]')
+                            || xpathFind('//button[.//i[normalize-space(text())="add_2"]]');
+                        if (addBtn2) break;
+                        await new Promise(r => setTimeout(r, 300));
+                    }
+                    if (!addBtn2) throw new Error('+ button not found for Product upload');
+                    humanClick(addBtn2);
+                    await new Promise(r => setTimeout(r, 1500));
+
+                    const reopenDialog = async () => {
+                        const btn2 = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]]')
+                            || xpathFind('//button[.//i[normalize-space(text())="add_2"]]');
+                        if (btn2) { humanClick(btn2); }
+                        await new Promise(r => setTimeout(r, 700));
+                    };
+                    await clickUploadImage(request.productImageData, reopenDialog);
+                    console.log('✅ Product uploaded');
+                }
+
+                sendProgress(4, '✅ Upload test complete!');
+                await new Promise(r => setTimeout(r, 1500));
+                removeFlowOverlay();
+            } catch (error) {
+                removeFlowOverlay();
+                if (error.message === 'CANCELLED') {
+                    console.log('🛑 Test Upload cancelled');
+                } else {
+                    console.error('❌ Test Upload error:', error);
+                    safeSendMessage({ action: 'videoError', error: error.message });
+                }
+            }
+        })();
+        sendResponse({ status: "started" });
+    }
     if (request.action === "testDownload") {
         console.log("🧪 Test Download triggered");
         downloadLatestVideo().then(() => {
