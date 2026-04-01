@@ -168,29 +168,36 @@ async function handleImageGeneration(data) {
         // Step 7.5: กด + อีกครั้งเพื่อเปิด dialog สำหรับรูปที่ 2
         if (data.productImageData) {
             sendProgress(7.5, 'เปิด dialog สำหรับ Product Image...');
-            console.log('🔍 Looking for + button (2nd time)...');
-            let addBtn2 = null;
-            for (let i = 0; i < 20; i++) {
+            let uploaded = false;
+            for (let attempt = 1; attempt <= 3 && !uploaded; attempt++) {
                 if (_jobCancelled) throw new Error('CANCELLED');
-                addBtn2 = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]]')
-                    || xpathFind('//button[.//i[normalize-space(text())="add_2"]]');
-                if (addBtn2) { console.log(`✅ Found + button on try ${i+1}`); break; }
-                await new Promise(r => setTimeout(r, 300));
-            }
-            if (!addBtn2) throw new Error('+ (add_2) button not found for 2nd upload');
-            humanClick(addBtn2);
-            console.log('✅ humanClick + button (2nd time)');
+                console.log(`🔍 Product upload attempt ${attempt}/3 — looking for + button...`);
 
-            // รอ dialog เปิดจริงก่อน (ไม่รีบ inject)
-            for (let i = 0; i < 30; i++) {
-                if (_jobCancelled) throw new Error('CANCELLED');
-                if (document.querySelector('.sc-dbfb6b4a-0')) { console.log('✅ Dialog open (2nd)'); break; }
-                await new Promise(r => setTimeout(r, 300));
-            }
-            await new Promise(r => setTimeout(r, 500));
+                let addBtn2 = null;
+                for (let i = 0; i < 20; i++) {
+                    if (_jobCancelled) throw new Error('CANCELLED');
+                    addBtn2 = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]]')
+                        || xpathFind('//button[.//i[normalize-space(text())="add_2"]]');
+                    if (addBtn2) { console.log(`✅ Found + button on try ${i+1}`); break; }
+                    await new Promise(r => setTimeout(r, 300));
+                }
+                if (!addBtn2) throw new Error('+ (add_2) button not found for Product upload');
 
-            sendProgress(7.6, 'อัปโหลด Product Image...');
-            await clickUploadImage(data.productImageData);
+                humanClick(addBtn2);
+                console.log(`✅ humanClick + button (attempt ${attempt})`);
+                await new Promise(r => setTimeout(r, 1500)); // รอ dialog เปิด
+
+                try {
+                    sendProgress(7.6, `อัปโหลด Product Image... (ครั้งที่ ${attempt})`);
+                    await clickUploadImage(data.productImageData);
+                    uploaded = true;
+                    console.log('✅ Product image uploaded successfully');
+                } catch (e) {
+                    console.warn(`⚠️ Product upload attempt ${attempt} failed: ${e.message}`);
+                    if (attempt === 3) throw new Error(`Product upload failed after 3 attempts: ${e.message}`);
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+            }
             await new Promise(r => setTimeout(r, 800));
         }
 
@@ -397,7 +404,7 @@ async function clickUploadImage(imageData) {
             await new Promise(r => setTimeout(r, 500));
         }
     }
-    if (!btn) { console.warn("⚠️ Upload button still not found after เริ่ม click"); return; }
+    if (!btn) { throw new Error('Upload button not found — dialog may not have opened'); }
 
     // Block click event บน file input ด้วย capture phase (preventDefault)
     const blockPickerHandler = (e) => {
