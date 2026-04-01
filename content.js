@@ -144,8 +144,15 @@ async function handleImageGeneration(data) {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
         await new Promise(r => setTimeout(r, 600));
 
-        // Step 6: กดปุ่ม + (add_2) ก่อน เพื่อเปิด prompt/upload area
-        sendProgress(6, 'กดปุ่ม + เพื่อเปิด input area...');
+        // Step 6: ใส่ Prompt ก่อน
+        if (data.prompt) {
+            sendProgress(6, 'ใส่ Prompt...');
+            await setPromptSlate(data.prompt);
+            await new Promise(r => setTimeout(r, 500));
+        }
+
+        // Step 7: กดปุ่ม + (add_2) เพื่อเปิด upload area
+        sendProgress(7, 'กดปุ่ม + เพื่อเปิด input area...');
         let addBtn = null;
         for (let i = 0; i < 20; i++) {
             if (_jobCancelled) throw new Error('CANCELLED');
@@ -158,16 +165,16 @@ async function handleImageGeneration(data) {
         console.log('✅ Clicked + button');
         await new Promise(r => setTimeout(r, 700));
 
-        // Step 7: อัปโหลด Face Reference
+        // Step 8: อัปโหลด Face Reference
         if (data.faceImageData) {
-            sendProgress(7, 'อัปโหลด Face Reference...');
+            sendProgress(8, 'อัปโหลด Face Reference...');
             await clickUploadImage(data.faceImageData);
             await new Promise(r => setTimeout(r, 800));
         }
 
-        // Step 7.5: กด + อีกครั้งเพื่อเปิด dialog สำหรับรูปที่ 2
+        // Step 8.5: กด + อีกครั้งเพื่อเปิด dialog สำหรับรูปที่ 2
         if (data.productImageData) {
-            sendProgress(7.5, 'เปิด dialog สำหรับ Product Image...');
+            sendProgress(8.5, 'เปิด dialog สำหรับ Product Image...');
             let uploaded = false;
             for (let attempt = 1; attempt <= 3 && !uploaded; attempt++) {
                 if (_jobCancelled) throw new Error('CANCELLED');
@@ -188,7 +195,7 @@ async function handleImageGeneration(data) {
                 await new Promise(r => setTimeout(r, 1500)); // รอ dialog เปิด
 
                 try {
-                    sendProgress(7.6, `อัปโหลด Product Image... (ครั้งที่ ${attempt})`);
+                    sendProgress(8.6, `อัปโหลด Product Image... (ครั้งที่ ${attempt})`);
                     // reopenDialog: กด + แล้วรอ 700ms — เหมือนกับที่ face ref ทำ
                     const reopenDialog = async () => {
                         const btn2 = xpathFind('//button[@aria-haspopup="dialog"][.//i[normalize-space(text())="add_2"]]')
@@ -206,13 +213,6 @@ async function handleImageGeneration(data) {
                 }
             }
             await new Promise(r => setTimeout(r, 800));
-        }
-
-        // Step 8: ใส่ Prompt
-        if (data.prompt) {
-            sendProgress(8, 'ใส่ Prompt...');
-            await setPromptSlate(data.prompt);
-            await new Promise(r => setTimeout(r, 500));
         }
 
         // Step 9: กด Generate (arrow_forward)
@@ -318,17 +318,17 @@ async function handleGeneration(data) {
             await new Promise(r => setTimeout(r, 500));
         }
 
-        // Step 3: อัปโหลดรูป (จาก image gen)
-        if (data.imageData) {
-            sendProgress(3, 'กำลังอัปโหลดรูปภาพ...');
-            await clickUploadImage(data.imageData);
+        // Step 3: ใส่ Prompt (Slate editor) ก่อน
+        if (data.script) {
+            sendProgress(3, 'กำลังใส่ Prompt...');
+            await setPromptSlate(data.script);
             await new Promise(r => setTimeout(r, 1000));
         }
 
-        // Step 4: ใส่ Prompt (Slate editor)
-        if (data.script) {
-            sendProgress(4, 'กำลังใส่ Prompt...');
-            await setPromptSlate(data.script);
+        // Step 4: อัปโหลดรูป (จาก image gen)
+        if (data.imageData) {
+            sendProgress(4, 'กำลังอัปโหลดรูปภาพ...');
+            await clickUploadImage(data.imageData);
             await new Promise(r => setTimeout(r, 1000));
         }
 
