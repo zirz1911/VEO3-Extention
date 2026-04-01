@@ -894,16 +894,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const js = result.jobStatus;
         if (js?.running) {
+            // Panel just opened — stale running state from previous run (service worker died or panel was closed).
+            // Do NOT disable the button. Clear stale state so user can run again.
+            chrome.storage.local.remove(['jobStatus', 'sidepanelHandlingUpload']);
+            statusText.innerText = 'พร้อมทำงาน (งานก่อนหน้าถูกยกเลิก)';
             statusBar.classList.remove('hidden');
-            progressFill.classList.add('pulse');
-            statusText.innerText = js.text || 'กำลังทำงาน...';
-            setRunning(true);
-            const automationOverlay = document.getElementById('automationOverlay');
-            const overlayStepText   = document.getElementById('overlayStepText');
-            if (automationOverlay) {
-                if (overlayStepText) overlayStepText.innerText = js.text || 'กำลังทำงาน...';
-                automationOverlay.classList.remove('hidden');
-            }
+            setTimeout(() => statusBar.classList.add('hidden'), 3000);
         } else if (js?.done) {
             statusText.innerText = 'เสร็จสิ้น!';
             statusBar.classList.remove('hidden');
