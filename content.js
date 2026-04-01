@@ -388,9 +388,22 @@ async function handleGeneration(data) {
             await new Promise(r => setTimeout(r, 1000));
         }
 
-        // Step 4: อัปโหลดรูป (จาก image gen)
+        // Step 4: กดปุ่ม เริ่ม/Start เพื่อเปิด upload dialog
         if (data.imageData) {
-            sendProgress(4, 'กำลังอัปโหลดรูปภาพ...');
+            sendProgress(4, 'กดปุ่ม เริ่ม...');
+            let startBtn = null;
+            for (let i = 0; i < 20; i++) {
+                if (_jobCancelled) throw new Error('CANCELLED');
+                startBtn = xpathFind("//div[@aria-haspopup='dialog' and (text()='เริ่ม' or text()='Start')]");
+                if (startBtn) break;
+                await new Promise(r => setTimeout(r, 300));
+            }
+            if (!startBtn) throw new Error('เริ่ม/Start button not found');
+            humanClick(startBtn);
+            console.log('✅ Clicked เริ่ม/Start button');
+            await new Promise(r => setTimeout(r, 700));
+
+            sendProgress(4.5, 'กำลังอัปโหลดรูปภาพ...');
             await clickUploadImage(data.imageData);
             await new Promise(r => setTimeout(r, 1000));
         }
