@@ -188,8 +188,15 @@ async function spTestLogoOverlay(videoBlob, logoDataUrl, { sizePct = 15, padding
     if (audioStream) tracks.push(...audioStream.getAudioTracks());
     const combined = new MediaStream(tracks);
 
-    const mimeType = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
-        .find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
+    // ลอง H.264 ก่อน (MP4-friendly, thumbnail ปกติ) แล้ว fallback VP9/VP8
+    const mimeType = [
+        'video/webm;codecs=h264,opus',
+        'video/webm;codecs=h264',
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm'
+    ].find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
+    console.log('[MediaRecorder] using codec:', mimeType);
     const recorder = new MediaRecorder(combined, { mimeType, videoBitsPerSecond: 8_000_000 });
     const chunks = [];
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
