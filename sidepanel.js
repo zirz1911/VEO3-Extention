@@ -1210,19 +1210,24 @@ document.addEventListener('DOMContentLoaded', () => {
         testLogoBtn.disabled = true;
         testLogoStatus.textContent = '⏳ กำลังโหลด Logo...';
         try {
-            const result = await spTestLogoOverlay(_testLogoVideoBlob, logoSrc, {
+            const webmBlob = await spTestLogoOverlay(_testLogoVideoBlob, logoSrc, {
                 sizePct:     parseInt(logoSizeInput.value)    || 15,
                 padding:     parseInt(logoPaddingInput.value) || 20,
                 logoPosFrac: (_lcX !== null) ? { xf: _lcX / LC_W, yf: _lcY / LC_H, wf: _lcW / LC_W } : null,
                 onStatus:    (msg) => { testLogoStatus.textContent = msg; }
             });
+            testLogoStatus.textContent = '🔄 กำลัง Convert เป็น MP4...';
+            const mp4Blob = await convertWebmToMp4(webmBlob, ({ ratio }) => {
+                testLogoStatus.textContent = `🔄 Converting MP4... ${Math.round((ratio || 0) * 100)}%`;
+            });
             testLogoStatus.textContent = '✅ เสร็จแล้ว! กำลัง Download...';
-            const url = URL.createObjectURL(result);
+            const url = URL.createObjectURL(mp4Blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'logo_test_' + Date.now() + '.webm';
+            a.download = 'logo_test_' + Date.now() + '.mp4';
             a.click();
             setTimeout(() => URL.revokeObjectURL(url), 5000);
+            testLogoStatus.textContent = `✅ Done ${Math.round(mp4Blob.size/1024/1024*10)/10} MB (mp4)`;
         } catch (err) {
             testLogoStatus.textContent = '❌ Error: ' + err.message;
         }
