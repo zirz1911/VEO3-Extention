@@ -1,6 +1,18 @@
 // content.js
 console.log("Paji Content Script Loaded");
 
+const SELECTORS = {
+    CREATE_BTN: "//button[.//span[text()='สร้าง' or text()='Create']]",
+    MODEL_DROPDOWN_BTN: '//button[@aria-haspopup="menu"][.//i[normalize-space(text())="arrow_drop_down"]]',
+    BACK_BTN: '//button[.//i[normalize-space(text())="arrow_back"]]',
+    CLEAR_PROMPT_BTN: '//button[.//span[normalize-space(text())="ล้างพรอมต์"]]',
+    CLEAR_PROMPT_CLOSE_BTN: '//button[.//i[normalize-space(text())="close"]][contains(@class,"sc-d3791a4f")]',
+    START_DIALOG_BTN: "//div[@aria-haspopup='dialog' and (text()='เริ่ม' or text()='Start')]",
+    START_BTN: '//div[@type="button" and (text()="เริ่ม" or text()="Start")]',
+    UPLOAD_IMAGE_BTN: "//div[contains(text(),'อัปโหลดรูปภาพ') or contains(text(),'Upload')]",
+    DOWNLOAD_MENU_BTN: "//button[@aria-haspopup='menu'][.//i[normalize-space(text())='download']]"
+};
+
 // บน Orion/mobile chrome.runtime.sendMessage อาจ return undefined (callback-based)
 // แทนที่จะเป็น Promise → ใช้ safeSendMessage ทุกครั้ง
 function safeSendMessage(msg) {
@@ -44,7 +56,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 let addBtn = null;
                 for (let i = 0; i < 20; i++) {
                     if (_jobCancelled) throw new Error('CANCELLED');
-                    addBtn = xpathFind("//button[.//span[text()='สร้าง' or text()='Create']]");
+                    addBtn = xpathFind(SELECTORS.CREATE_BTN);
                     if (addBtn) break;
                     await new Promise(r => setTimeout(r, 300));
                 }
@@ -66,7 +78,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     let addBtn2 = null;
                     for (let i = 0; i < 20; i++) {
                         if (_jobCancelled) throw new Error('CANCELLED');
-                        addBtn2 = xpathFind("//button[.//span[text()='สร้าง' or text()='Create']]");
+                        addBtn2 = xpathFind(SELECTORS.CREATE_BTN);
                         if (addBtn2) break;
                         await new Promise(r => setTimeout(r, 300));
                     }
@@ -75,7 +87,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     await new Promise(r => setTimeout(r, 1500));
 
                     const reopenDialog = async () => {
-                        const btn2 = xpathFind("//button[.//span[text()='สร้าง' or text()='Create']]");
+                        const btn2 = xpathFind(SELECTORS.CREATE_BTN);
                         if (btn2) { humanClick(btn2); }
                         await new Promise(r => setTimeout(r, 700));
                     };
@@ -183,9 +195,7 @@ async function handleImageGeneration(data) {
 
         // Step 5: เปิด model dropdown (ปุ่ม arrow_drop_down ภายใน panel)
         sendProgress(5, 'เลือกโมเดล...');
-        const modelDropBtn = xpathFind(
-            '//button[@aria-haspopup="menu"][.//i[normalize-space(text())="arrow_drop_down"]]'
-        );
+        const modelDropBtn = xpathFind(SELECTORS.MODEL_DROPDOWN_BTN);
         if (modelDropBtn) {
             humanClick(modelDropBtn);
             console.log('✅ Clicked model dropdown');
@@ -221,7 +231,7 @@ async function handleImageGeneration(data) {
         let addBtn = null;
         for (let i = 0; i < 20; i++) {
             if (_jobCancelled) throw new Error('CANCELLED');
-            addBtn = xpathFind("//button[.//span[text()='สร้าง' or text()='Create']]");
+            addBtn = xpathFind(SELECTORS.CREATE_BTN);
             if (addBtn) break;
             await new Promise(r => setTimeout(r, 300));
         }
@@ -248,7 +258,7 @@ async function handleImageGeneration(data) {
                 let addBtn2 = null;
                 for (let i = 0; i < 20; i++) {
                     if (_jobCancelled) throw new Error('CANCELLED');
-                    addBtn2 = xpathFind("//button[.//span[text()='สร้าง' or text()='Create']]");
+                    addBtn2 = xpathFind(SELECTORS.CREATE_BTN);
                     if (addBtn2) { console.log(`✅ Found + button on try ${i+1}`); break; }
                     await new Promise(r => setTimeout(r, 300));
                 }
@@ -262,7 +272,7 @@ async function handleImageGeneration(data) {
                     sendProgress(8.6, `อัปโหลด Product Image... (ครั้งที่ ${attempt})`);
                     // reopenDialog: กด + แล้วรอ 700ms — เหมือนกับที่ face ref ทำ
                     const reopenDialog = async () => {
-                        const btn2 = xpathFind("//button[.//span[text()='สร้าง' or text()='Create']]");
+                        const btn2 = xpathFind(SELECTORS.CREATE_BTN);
                         if (btn2) { humanClick(btn2); console.log('✅ reopenDialog: humanClick +'); }
                         await new Promise(r => setTimeout(r, 700));
                     };
@@ -324,7 +334,7 @@ async function handleGeneration(data) {
         sendProgress(1, 'เปลี่ยนเป็นโหมดวิดีโอ...');
         const onProjectPage = /\/flow\/project\/[a-zA-Z0-9-]+/.test(location.pathname);
         if (!onProjectPage) {
-            const backBtn = xpathFind('//button[.//i[normalize-space(text())="arrow_back"]]');
+            const backBtn = xpathFind(SELECTORS.BACK_BTN);
             if (backBtn) {
                 humanClick(backBtn);
                 console.log('✅ Clicked back button');
@@ -359,8 +369,8 @@ async function handleGeneration(data) {
         await new Promise(r => setTimeout(r, 600));
 
         // เคลียร์ prompt เดิม (ล้างพรอมต์)
-        const clearBtn = xpathFind('//button[.//span[normalize-space(text())="ล้างพรอมต์"]]')
-            || xpathFind('//button[.//i[normalize-space(text())="close"]][contains(@class,"sc-d3791a4f")]');
+        const clearBtn = xpathFind(SELECTORS.CLEAR_PROMPT_BTN)
+            || xpathFind(SELECTORS.CLEAR_PROMPT_CLOSE_BTN);
         if (clearBtn) {
             humanClick(clearBtn);
             console.log('✅ Cleared old prompt');
@@ -394,7 +404,7 @@ async function handleGeneration(data) {
             let startBtn = null;
             for (let i = 0; i < 20; i++) {
                 if (_jobCancelled) throw new Error('CANCELLED');
-                startBtn = xpathFind("//div[@aria-haspopup='dialog' and (text()='เริ่ม' or text()='Start')]");
+                startBtn = xpathFind(SELECTORS.START_DIALOG_BTN);
                 if (startBtn) break;
                 await new Promise(r => setTimeout(r, 300));
             }
@@ -438,7 +448,7 @@ async function handleGeneration(data) {
 // ── Step 1: กดเริ่ม / Start ──────────────────────────────────────────────────
 async function clickStart() {
     console.log("Step 1: Looking for Start button...");
-    const xpath = '//div[@type="button" and (text()="เริ่ม" or text()="Start")]';
+    const xpath = SELECTORS.START_BTN;
 
     for (let i = 0; i < 20; i++) {
         const el = getElementByXPath(xpath);
@@ -457,7 +467,7 @@ async function clickStart() {
 // reopenDialog: optional async fn ที่จะถูกเรียกถ้าหาปุ่ม upload ไม่เจอ (เช่น กด + แล้วรอ)
 async function clickUploadImage(imageData, reopenDialog = null) {
     console.log("Step 2: Setting up file input blocker...");
-    const xpath = "//div[contains(text(),'อัปโหลดรูปภาพ') or contains(text(),'Upload')]";
+    const xpath = SELECTORS.UPLOAD_IMAGE_BTN;
 
     if (!imageData) { console.warn("⚠️ No imageData"); return; }
 
@@ -844,7 +854,7 @@ async function downloadLatestImage() {
     // รอปุ่ม Download (icon "download")
     let downloadBtn = null;
     for (let i = 0; i < 20; i++) {
-        downloadBtn = xpathFind(`//button[@aria-haspopup='menu'][.//i[normalize-space(text())='download']]`);
+        downloadBtn = xpathFind(SELECTORS.DOWNLOAD_MENU_BTN);
         if (downloadBtn) break;
         await new Promise(r => setTimeout(r, 300));
     }
@@ -1012,9 +1022,7 @@ async function downloadLatestVideo() {
     // หาด้วย XPath — ไม่ขึ้นกับภาษา UI (ใช้ icon name "download" ข้างใน <i>)
     let downloadBtn = null;
     for (let i = 0; i < 20; i++) {
-        downloadBtn = xpathFind(
-            `//button[@aria-haspopup='menu'][.//i[normalize-space(text())='download']]`
-        );
+        downloadBtn = xpathFind(SELECTORS.DOWNLOAD_MENU_BTN);
         if (downloadBtn) break;
         await new Promise(r => setTimeout(r, 300));
     }

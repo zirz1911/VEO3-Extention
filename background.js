@@ -97,9 +97,13 @@ chrome.runtime.onMessage.addListener((message) => {
 // ── Manual Task Trigger ───────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'runTaskNow') {
-        chrome.storage.local.get('tasks', async ({ tasks = [] }) => {
+        (async () => {
+            const { tasks = [] } = await chrome.storage.local.get('tasks');
             const task = tasks.find(t => t.id === message.taskId);
-            if (!task) { sendResponse({ error: 'ไม่พบ Task' }); return; }
+            if (!task) {
+                sendResponse({ error: 'ไม่พบ Task' });
+                return;
+            }
 
             const logEntry = {
                 id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -112,15 +116,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 error: null
             };
             await tmAppendLog(logEntry);
+            await chrome.storage.local.set({
+                jobStatus: { running: true, step: 0, text: `กำลังเริ่ม Task: ${task.name}` }
+            });
             console.log(`[Manual] Starting task "${task.name}"`);
+            sendResponse({ ok: true, started: true, logId: logEntry.id });
 
             runTaskJob(task, logEntry.id)
-                .then(() => sendResponse({ ok: true }))
                 .catch(async (err) => {
                     console.error('[Manual] Job failed:', err);
                     await tmUpdateLog(logEntry.id, { status: 'failed', error: err.message, finishedAt: Date.now() });
-                    sendResponse({ error: err.message });
+                    await chrome.storage.local.set({
+                        jobStatus: { running: false, error: err.message }
+                    });
                 });
+        })().catch((err) => {
+            console.error('[Manual] Failed to start task:', err);
+            sendResponse({ error: err.message });
         });
         return true; // keep channel open for async
     }

@@ -2012,13 +2012,15 @@ Spoken Language: ${language}
                 btn.innerText = '⏳';
                 chrome.runtime.sendMessage({ action: 'runTaskNow', taskId: btn.dataset.id }, (res) => {
                     btn.disabled = false;
-                    if (res?.error) {
+                    const error = chrome.runtime.lastError?.message || res?.error || "";
+                    if (error) {
                         btn.innerText = '❌';
-                        btn.title = res.error;
+                        btn.title = error;
                         setTimeout(() => { btn.innerText = '▶ Run'; btn.title = ''; }, 4000);
                     } else {
-                        btn.innerText = '✅';
-                        setTimeout(() => { btn.innerText = '▶ Run'; renderTaskList(); }, 2000);
+                        btn.innerText = '🚀';
+                        btn.title = 'Task started';
+                        setTimeout(() => { btn.innerText = '▶ Run'; btn.title = ''; renderTaskList(); }, 2000);
                     }
                 });
             });
