@@ -4,6 +4,19 @@ function checkCancelled() {
     if (_cancelRequested) throw new Error('CANCELLED');
 }
 
+function sendTabMessageQuiet(tabId, message) {
+    if (!tabId) return;
+    try {
+        chrome.tabs.sendMessage(tabId, message, () => {
+            if (chrome.runtime.lastError) {
+                console.debug('tab message ignored:', chrome.runtime.lastError.message);
+            }
+        });
+    } catch (e) {
+        console.debug('tab message failed:', e.message);
+    }
+}
+
 // ── FFmpeg: convert webm → mp4 ────────────────────────────────────────────
 let _ffmpeg = null;
 
@@ -34,7 +47,7 @@ async function convertWebmToMp4(webmBlob, onProgress) {
 async function updateFlowTabOverlay(text) {
     try {
         const tabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
-        if (tabs.length > 0) chrome.tabs.sendMessage(tabs[0].id, { action: 'updateLogoProgress', text });
+        if (tabs.length > 0) sendTabMessageQuiet(tabs[0].id, { action: 'updateLogoProgress', text });
     } catch (_) {}
 }
 
@@ -266,9 +279,9 @@ async function prepareAndUploadToTikTok(videoUrl, caption, productId, statusEl) 
     const flowTabId = flowTabs[0]?.id || null;
     const sendToFlow = (text) => {
         setStatus(text);
-        if (flowTabId) chrome.tabs.sendMessage(flowTabId, { action: 'updateLogoProgress', text });
+        sendTabMessageQuiet(flowTabId, { action: 'updateLogoProgress', text });
     };
-    if (flowTabId) chrome.tabs.sendMessage(flowTabId, { action: 'showLogoProgress', text: 'กำลังเตรียมไฟล์...' });
+    sendTabMessageQuiet(flowTabId, { action: 'showLogoProgress', text: 'กำลังเตรียมไฟล์...' });
 
     if (logoSettings.logoEnabled && logoSettings.logoDataUrl) {
         // ถ้า logo enabled — ต้องเสร็จก่อนถึงจะ upload ได้ ห้าม catch แล้วข้าม
@@ -314,7 +327,7 @@ async function prepareAndUploadToTikTok(videoUrl, caption, productId, statusEl) 
 
     checkCancelled();
     // ปิด overlay บนหน้า Flow
-    if (flowTabId) chrome.tabs.sendMessage(flowTabId, { action: 'hideLogoProgress' });
+    sendTabMessageQuiet(flowTabId, { action: 'hideLogoProgress' });
 
     // เปิด/หา TikTok tab — ยังไม่สลับ focus
     await ensureTikTokStudioOpen({ focus: false });
@@ -875,7 +888,7 @@ document.addEventListener('DOMContentLoaded', () => {
         _cancelRequested = true;
         try {
             const flowTabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
-            if (flowTabs.length > 0) chrome.tabs.sendMessage(flowTabs[0].id, { action: 'cancelJob' });
+            if (flowTabs.length > 0) sendTabMessageQuiet(flowTabs[0].id, { action: 'cancelJob' });
         } catch (e) { /* ignore */ }
         const automationOverlay = document.getElementById('automationOverlay');
         if (automationOverlay) automationOverlay.classList.add('hidden');

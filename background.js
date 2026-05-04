@@ -372,24 +372,51 @@ async function runTaskJob(task, logId) {
 }
 
 async function bgCallAI(prompt, model, chatgptKey, googleKey, maxTokens = 300) {
+    const readApiResponse = async (res) => {
+        const text = await res.text();
+        if (!text) return {};
+        try {
+            return JSON.parse(text);
+        } catch (_) {
+            return { raw: text.slice(0, 300) };
+        }
+    };
+
+    const formatApiError = (provider, res, data) => {
+        const apiMessage = data?.error?.message || data?.error || data?.raw || 'No response body';
+        return `${provider} API Error (${res.status} ${res.statusText || 'HTTP error'}): ${apiMessage}`;
+    };
+
     if (model === 'chatgpt') {
+        if (!chatgptKey) throw new Error('ChatGPT API key missing');
         const res = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${chatgptKey}` },
             body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens })
         });
-        const data = await res.json();
-        if (data.choices?.length > 0) return data.choices[0].message.content.trim();
-        throw new Error('ChatGPT API Error');
+        const data = await readApiResponse(res);
+        if (!res.ok) throw new Error(formatApiError('ChatGPT', res, data));
+        const content = data.choices?.[0]?.message?.content;
+        if (content) return content.trim();
+        throw new Error(`ChatGPT API Error: empty response (${JSON.stringify(data).slice(0, 300)})`);
     }
+
+    if (!googleKey) throw new Error('Gemini API key missing');
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${googleKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
     });
-    const data = await res.json();
-    if (data.candidates?.length > 0 && data.candidates[0].content) return data.candidates[0].content.parts[0].text.trim();
-    throw new Error('Gemini API Error');
+    const data = await readApiResponse(res);
+    if (!res.ok) throw new Error(formatApiError('Gemini', res, data));
+
+    const candidate = data.candidates?.[0];
+    const text = candidate?.content?.parts?.map(part => part.text || '').join('').trim();
+    if (text) return text;
+
+    const reason = candidate?.finishReason || data.promptFeedback?.blockReason || 'empty response';
+    const safety = candidate?.safetyRatings || data.promptFeedback?.safetyRatings;
+    throw new Error(`Gemini API Error: ${reason}${safety ? ` (${JSON.stringify(safety).slice(0, 300)})` : ''}`);
 }
 
 function bgBuildImagePrompt(fd) {
