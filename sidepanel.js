@@ -593,6 +593,19 @@ Requirements:
 
 // ── DOMContentLoaded ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+    try {
+        if (!chrome.sidePanel) {
+            document.body.classList.add('popup-mode');
+        } else {
+            chrome.runtime.getPlatformInfo(({ os }) => {
+                const isMobile = os === 'android' || os === 'ios';
+                if (isMobile) document.body.classList.add('popup-mode');
+            });
+        }
+    } catch (e) {
+        document.body.classList.add('popup-mode');
+    }
+
     // Element refs
     const productImageInput  = document.getElementById('productImageInput');
     const imagePreview       = document.getElementById('imagePreview');

@@ -648,20 +648,6 @@
       </div>
     </div>
   </div>
-  <script>
-    try {
-      if (!chrome.sidePanel) {
-        document.body.classList.add('popup-mode');
-      } else {
-        chrome.runtime.getPlatformInfo(({ os }) => {
-          const isMobile = os === 'android' || os === 'ios';
-          if (isMobile) document.body.classList.add('popup-mode');
-        });
-      }
-    } catch (e) {
-      document.body.classList.add('popup-mode');
-    }
-  </script>
   <script src="ffmpeg/ffmpeg.min.js"></script>
   <script src="task-manager.js"></script>
   <script src="sidepanel.js"></script>
