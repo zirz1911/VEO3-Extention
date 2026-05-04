@@ -216,6 +216,21 @@ async function bgWaitForContentScript(tabId, retries = 20, delayMs = 1500) {
     throw new Error('Content script ไม่ตอบสนอง — กรุณาโหลดหน้า labs.google ใหม่');
 }
 
+async function bgGetFlowTab() {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab?.id && activeTab.url?.startsWith('https://labs.google/')) {
+        return activeTab;
+    }
+
+    const currentWindowTabs = await chrome.tabs.query({ currentWindow: true, url: 'https://labs.google/*' });
+    if (currentWindowTabs.length > 0) return currentWindowTabs[0];
+
+    const flowTabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
+    if (flowTabs.length > 0) return flowTabs[0];
+
+    throw new Error('ไม่พบ labs.google tab — กรุณาเปิด Google Labs ก่อน');
+}
+
 async function runTaskJob(task, logId) {
     const fd = task.formData || {};
     try {
@@ -226,15 +241,14 @@ async function runTaskJob(task, logId) {
         const rawCaption = await bgCallAI(bgBuildCaptionPrompt(fd), model, keys.chatgptApiKey, keys.googleApiKey, 400);
         const caption = tmCleanCaption(rawCaption);
 
-        // Find labs.google tab
-        const flowTabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
-        if (flowTabs.length === 0) throw new Error('ไม่พบ labs.google tab — กรุณาเปิด Google Labs ก่อน');
-        const tabId = flowTabs[0].id;
+        // Prefer the labs.google tab the user is already viewing.
+        const flowTab = await bgGetFlowTab();
+        const tabId = flowTab.id;
         // Reload ก่อนเสมอ เพื่อ reset state ของหน้า
         await chrome.tabs.reload(tabId);
         await bgWaitForTabComplete(tabId);
         await chrome.tabs.update(tabId, { active: true });
-        try { await chrome.windows.update(flowTabs[0].windowId, { focused: true }); } catch (_) {}
+        try { await chrome.windows.update(flowTab.windowId, { focused: true }); } catch (_) {}
         await bgWaitForContentScript(tabId);
 
         // Image generation
@@ -355,11 +369,11 @@ async function runTaskJob(task, logId) {
                 });
             });
 
-            const flowTabs = await chrome.tabs.query({ url: 'https://labs.google/*' });
-            if (flowTabs.length > 0) {
-                await chrome.tabs.update(flowTabs[0].id, { active: true });
+            try {
+                const flowTab = await bgGetFlowTab();
+                await chrome.tabs.update(flowTab.id, { active: true });
                 console.log('[Scheduler] Switched back to Flow after upload');
-            }
+            } catch (_) {}
         }
 
         await tmUpdateLog(logId, { status: 'success', finishedAt: Date.now() });

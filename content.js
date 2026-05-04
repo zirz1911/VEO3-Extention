@@ -144,17 +144,8 @@ async function handleImageGeneration(data) {
     try {
         // Step 1: เปิด dropdown settings — retry จนกว่าปุ่มจะ render (หลัง reload)
         sendProgress(1, 'กำลังรอหน้า Flow โหลด...');
-        let triggerBtn = null;
-        for (let i = 0; i < 40; i++) {
-            if (_jobCancelled) throw new Error('CANCELLED');
-            triggerBtn = document.querySelector('button.sc-46973129-1');
-            if (triggerBtn) break;
-            await new Promise(r => setTimeout(r, 500));
-        }
-        if (!triggerBtn) throw new Error('Settings trigger button not found — หน้า Flow อาจโหลดไม่เสร็จ');
         sendProgress(1, 'กำลังเปิดเมนู...');
-        humanClick(triggerBtn);
-        await new Promise(r => setTimeout(r, 700));
+        await openSettingsPanel('IMAGE');
 
         // Step 2: เลือก "รูปภาพ" (IMAGE tab)
         sendProgress(2, 'เลือกประเภทรูปภาพ...');
@@ -347,10 +338,7 @@ async function handleGeneration(data) {
         }
 
         // เปิด settings dropdown → เลือก VIDEO
-        const triggerBtn = document.querySelector('button.sc-46973129-1');
-        if (!triggerBtn) throw new Error('Settings trigger button not found');
-        humanClick(triggerBtn);
-        await new Promise(r => setTimeout(r, 700));
+        await openSettingsPanel('VIDEO');
 
         let videoTab = null;
         for (let i = 0; i < 20; i++) {
@@ -607,19 +595,66 @@ function humanClick(el) {
     });
 }
 
+function isVisible(el) {
+    if (!el) return false;
+    const rect = el.getBoundingClientRect();
+    const style = window.getComputedStyle(el);
+    return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none';
+}
+
+function getSettingsTab(type) {
+    return document.querySelector(`button[aria-controls$="-content-${type}"]`);
+}
+
+function findSettingsTriggerCandidates() {
+    const preferred = Array.from(document.querySelectorAll('button.sc-46973129-1'));
+    const buttons = Array.from(document.querySelectorAll('button'))
+        .filter(btn => isVisible(btn) && !btn.disabled);
+
+    const likely = buttons.filter(btn => {
+        const text = btn.textContent.trim();
+        const iconText = Array.from(btn.querySelectorAll('i, span')).map(el => el.textContent.trim()).join(' ');
+        return /Veo|Imagen|9:16|16:9|x1|x2|x3|x4|settings|tune|arrow_drop_down|รูปภาพ|วิดีโอ|Image|Video/i.test(`${text} ${iconText}`);
+    });
+
+    return Array.from(new Set([...preferred, ...likely, ...buttons]));
+}
+
+async function openSettingsPanel(targetType) {
+    for (let i = 0; i < 12; i++) {
+        if (_jobCancelled) throw new Error('CANCELLED');
+        const existingTab = getSettingsTab(targetType);
+        if (existingTab && isVisible(existingTab)) return existingTab;
+        await new Promise(r => setTimeout(r, 250));
+    }
+
+    const candidates = findSettingsTriggerCandidates();
+    for (const btn of candidates) {
+        if (_jobCancelled) throw new Error('CANCELLED');
+        humanClick(btn);
+        await new Promise(r => setTimeout(r, 500));
+        const tab = getSettingsTab(targetType);
+        if (tab && isVisible(tab)) {
+            console.log('✅ Opened settings panel with:', btn.textContent.trim().substring(0, 60) || btn.className);
+            return tab;
+        }
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await new Promise(r => setTimeout(r, 150));
+    }
+
+    throw new Error(`Settings trigger button not found — ${targetType} tab did not appear`);
+}
+
 // ── Step 3: เลือก Ratio + Quantity จาก dropdown ─────────────────────────────
 async function selectRatioAndQuantity(ratio, quantity) {
     console.log(`Step 3: Selecting ratio=${ratio}, quantity=${quantity}...`);
 
     // เปิด dropdown ด้วย human-like click
-    const triggerBtn = document.querySelector('button.sc-46973129-1');
-    if (!triggerBtn) { console.warn("⚠️ Dropdown trigger not found"); return; }
-
-    humanClick(triggerBtn);
-    console.log("✅ Clicked settings dropdown trigger");
+    const ratioContentId = ratio === '16:9' ? 'LANDSCAPE' : 'PORTRAIT';
+    await openSettingsPanel(ratioContentId);
+    console.log("✅ Opened settings dropdown");
 
     // รอ tabs โผล่ใน DOM (Radix portal)
-    const ratioContentId = ratio === '16:9' ? 'LANDSCAPE' : 'PORTRAIT';
     const qty = String(parseInt(quantity) || 1);
 
     let ratioTab = null;
